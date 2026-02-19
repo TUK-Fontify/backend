@@ -17,11 +17,11 @@ class GenerationJob(Base):
     finished_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
     user_id: Mapped[str] = mapped_column(ForeignKey("users.user_id", ondelete="CASCADE"), nullable=False)
-    base_font_id: Mapped[int] = mapped_column(ForeignKey("base_fonts.base_font_id"), nullable=False)
+    font_file_id: Mapped[int] = mapped_column(ForeignKey("font_files.font_file_id"), nullable=False)
     handwriting_id: Mapped[int] = mapped_column(ForeignKey("handwritings.handwriting_id"), nullable=False)
 
     user = relationship("User", back_populates="generation_jobs")
-    base_font = relationship("BaseFont", back_populates="generation_jobs")
+    font_file = relationship("FontFile", back_populates="generation_jobs")
     handwriting = relationship("Handwriting", back_populates="generation_jobs")
     generated_font = relationship("GeneratedFont", back_populates="generation_job", uselist=False)
 

@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user_id
 from app.db.session import get_db
-from app.models import BaseFont, GenerationJob, Handwriting
+from app.models import FontFile, GenerationJob, Handwriting
 
 
 router = APIRouter()
@@ -22,7 +22,7 @@ class UploadResponse(BaseModel):
 
 class CreateRequest(BaseModel):
     handwriting_id: int
-    base_font_id: int
+    font_file_id: int
 
 
 class CreateResponse(BaseModel):
@@ -64,13 +64,13 @@ def create_generation_job(
     if handwriting.user_id != user_id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="not your handwriting")
 
-    base_font = db.scalar(select(BaseFont).where(BaseFont.base_font_id == payload.base_font_id))
-    if not base_font:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="base font not found")
+    font_file = db.scalar(select(FontFile).where(FontFile.font_file_id == payload.font_file_id))
+    if not font_file:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="font file not found")
 
     job = GenerationJob(
         user_id=user_id,
-        base_font_id=payload.base_font_id,
+        font_file_id=payload.font_file_id,
         handwriting_id=payload.handwriting_id,
         status="PENDING",
         progress=0,

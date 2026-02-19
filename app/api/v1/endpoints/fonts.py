@@ -8,15 +8,19 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user_id
 from app.db.session import get_db
-from app.models import BaseFont, DownloadRecord, GeneratedFont, Rating
+from app.models import DownloadRecord, FontFile, GeneratedFont, Rating
 
 
 router = APIRouter()
 
 
 class BaseFontItem(BaseModel):
-    base_font_id: int
-    name: str
+    font_file_id: int
+    font_family_id: int
+    family_name: str
+    weight: int
+    style: str
+    file_path: str
 
 
 class GeneratedFontItem(BaseModel):
@@ -43,8 +47,18 @@ def list_fonts(
     db: Session = Depends(get_db),
 ) -> list[BaseFontItem] | list[GeneratedFontItem]:
     if type == "base":
-        rows = db.scalars(select(BaseFont).order_by(BaseFont.base_font_id.desc())).all()
-        return [BaseFontItem(base_font_id=r.base_font_id, name=r.name) for r in rows]
+        rows = db.scalars(select(FontFile).order_by(FontFile.font_file_id.desc())).all()
+        return [
+            BaseFontItem(
+                font_file_id=r.font_file_id,
+                font_family_id=r.font_family_id,
+                family_name=r.font_family.name,
+                weight=r.weight,
+                style=r.style,
+                file_path=r.file_path,
+            )
+            for r in rows
+        ]
 
     rows = db.scalars(select(GeneratedFont).order_by(GeneratedFont.generated_font_id.desc())).all()
     return [GeneratedFontItem(generated_font_id=r.generated_font_id, name=r.name, file_url=r.file_url) for r in rows]

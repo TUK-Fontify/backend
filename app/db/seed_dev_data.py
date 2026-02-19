@@ -1,10 +1,15 @@
-﻿from sqlalchemy import select
+from sqlalchemy import select
 
 from app.db.session import SessionLocal
-from app.models import BaseFont, User
+from app.models import FontFamily, FontFile, User
 
 
-DEFAULT_BASE_FONTS = ["Noto Sans KR", "Nanum Gothic", "Pretendard"]
+DEFAULT_FONT_FILES = [
+    ("Noto Sans KR", 400, "normal", "static/fonts/noto-sans-kr/NotoSansKR-Regular.ttf"),
+    ("Noto Sans KR", 700, "normal", "static/fonts/noto-sans-kr/NotoSansKR-Bold.ttf"),
+    ("Nanum Gothic", 400, "normal", "static/fonts/nanum-gothic/NanumGothic-Regular.ttf"),
+    ("Pretendard", 400, "normal", "static/fonts/pretendard/Pretendard-Regular.ttf"),
+]
 
 
 def seed_dev_data() -> None:
@@ -14,13 +19,32 @@ def seed_dev_data() -> None:
         if not user:
             db.add(User(user_id="dev-user-001", email="dev@example.com", nickname="개발테스트유저"))
 
-        for name in DEFAULT_BASE_FONTS:
-            exists = db.scalar(select(BaseFont).where(BaseFont.name == name))
+        for family_name, weight, style, file_path in DEFAULT_FONT_FILES:
+            family = db.scalar(select(FontFamily).where(FontFamily.name == family_name))
+            if not family:
+                family = FontFamily(name=family_name)
+                db.add(family)
+                db.flush()
+
+            exists = db.scalar(
+                select(FontFile).where(
+                    FontFile.font_family_id == family.font_family_id,
+                    FontFile.weight == weight,
+                    FontFile.style == style,
+                )
+            )
             if not exists:
-                db.add(BaseFont(name=name))
+                db.add(
+                    FontFile(
+                        font_family_id=family.font_family_id,
+                        weight=weight,
+                        style=style,
+                        file_path=file_path,
+                    )
+                )
 
         db.commit()
-        print("Seed complete: dev user + base fonts")
+        print("Seed complete: dev user + font families/files")
     finally:
         db.close()
 

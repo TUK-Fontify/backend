@@ -1,4 +1,4 @@
-﻿-- Run this while connected to postgres as a superuser/admin user.
+-- Run this while connected to postgres as a superuser/admin user.
 CREATE DATABASE font;
 
 -- Connect to font DB before running statements below.
@@ -24,11 +24,6 @@ BEFORE UPDATE ON users
 FOR EACH ROW
 EXECUTE FUNCTION update_updated_at_column();
 
-CREATE TABLE base_fonts (
-    base_font_id BIGSERIAL PRIMARY KEY,
-    name VARCHAR(100) NOT NULL
-);
-
 CREATE TABLE handwritings (
     handwriting_id BIGSERIAL PRIMARY KEY,
     image_url VARCHAR(255) NOT NULL,
@@ -37,6 +32,24 @@ CREATE TABLE handwritings (
     CONSTRAINT fk_handwriting_user
         FOREIGN KEY (user_id) REFERENCES users(user_id)
         ON DELETE CASCADE
+);
+
+CREATE TABLE font_families (
+    font_family_id BIGSERIAL PRIMARY KEY,
+    name VARCHAR(100) NOT NULL UNIQUE
+);
+
+CREATE TABLE font_files (
+    font_file_id BIGSERIAL PRIMARY KEY,
+    font_family_id BIGINT NOT NULL,
+    weight INT NOT NULL,
+    style VARCHAR(20) NOT NULL,
+    file_path VARCHAR(255) NOT NULL,
+    CONSTRAINT fk_fontfile_family
+        FOREIGN KEY (font_family_id) REFERENCES font_families(font_family_id)
+        ON DELETE CASCADE,
+    CONSTRAINT unique_family_weight_style
+        UNIQUE (font_family_id, weight, style)
 );
 
 CREATE TABLE generation_jobs (
@@ -48,13 +61,13 @@ CREATE TABLE generation_jobs (
     requested_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     finished_at TIMESTAMP,
     user_id VARCHAR(50) NOT NULL,
-    base_font_id BIGINT NOT NULL,
+    font_file_id BIGINT NOT NULL,
     handwriting_id BIGINT NOT NULL,
     CONSTRAINT fk_job_user
         FOREIGN KEY (user_id) REFERENCES users(user_id)
         ON DELETE CASCADE,
-    CONSTRAINT fk_job_basefont
-        FOREIGN KEY (base_font_id) REFERENCES base_fonts(base_font_id),
+    CONSTRAINT fk_job_fontfile
+        FOREIGN KEY (font_file_id) REFERENCES font_files(font_file_id),
     CONSTRAINT fk_job_handwriting
         FOREIGN KEY (handwriting_id) REFERENCES handwritings(handwriting_id)
 );
