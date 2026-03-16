@@ -17,8 +17,9 @@ class GenerationJob(Base):
     finished_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
     user_id: Mapped[str] = mapped_column(ForeignKey("users.user_id", ondelete="CASCADE"), nullable=False)
-    font_file_id: Mapped[int] = mapped_column(ForeignKey("font_files.font_file_id"), nullable=False)
-    handwriting_id: Mapped[int] = mapped_column(ForeignKey("handwritings.handwriting_id"), nullable=False)
+    # Either font_file_id or handwriting_id may be null depending on the generation type.
+    font_file_id: Mapped[int | None] = mapped_column(ForeignKey("font_files.font_file_id"), nullable=True)
+    handwriting_id: Mapped[int | None] = mapped_column(ForeignKey("handwritings.handwriting_id"), nullable=True)
 
     user = relationship("User", back_populates="generation_jobs")
     font_file = relationship("FontFile", back_populates="generation_jobs")

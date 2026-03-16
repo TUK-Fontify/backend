@@ -42,8 +42,8 @@ python run.py
 2. For protected APIs, set header: `x-user-id: dev-user-001`
 3. Test in order:
    - `POST /api/v1/handwriting/upload`
-   - `POST /api/v1/handwriting/create`
-   - `GET /api/v1/generation/{job_id}`
+   - `POST /api/v1/generations/handwriting`
+   - `GET /api/v1/generations/{job_id}`
 
 ## API docs
 

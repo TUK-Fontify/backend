@@ -61,8 +61,8 @@ CREATE TABLE generation_jobs (
     requested_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     finished_at TIMESTAMP,
     user_id VARCHAR(50) NOT NULL,
-    font_file_id BIGINT NOT NULL,
-    handwriting_id BIGINT NOT NULL,
+    font_file_id BIGINT,
+    handwriting_id BIGINT,
     CONSTRAINT fk_job_user
         FOREIGN KEY (user_id) REFERENCES users(user_id)
         ON DELETE CASCADE,

@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user_id
 from app.db.session import get_db
-from app.models import DownloadRecord, GeneratedFont, GenerationJob, User
+from app.models import DownloadRecord, FontFamily, FontFile, GeneratedFont, GenerationJob, Rating, User
 
 
 router = APIRouter()
@@ -24,15 +24,37 @@ class MeUpdateRequest(BaseModel):
     nickname: str
 
 
-class RecentFontResponse(BaseModel):
-    generated_font_id: int
-    name: str
-    created_at: datetime
+class MeUpdateResponse(BaseModel):
+    user_id: str
+    nickname: str
+    updated_at: datetime
 
 
-class DownloadListResponse(BaseModel):
+class RatingItem(BaseModel):
+    rating_id: int
     generated_font_id: int
-    name: str
+    font_name: str
+    score: int
+    comment: str | None
+    rated_at: datetime
+
+
+class GenerationJobItem(BaseModel):
+    job_id: int
+    status: str
+    progress: int
+    similarity_percent: float | None
+    requested_at: datetime
+    finished_at: datetime | None
+    font_name: str
+
+
+class DownloadItem(BaseModel):
+    download_id: int
+    font_id: int | None
+    generated_font_id: int | None
+    font_name: str
+    file_url: str
     downloaded_at: datetime
 
 
@@ -47,43 +69,106 @@ def get_me(
     return MeResponse(user_id=user.user_id, email=user.email, nickname=user.nickname, created_at=user.created_at)
 
 
-@router.patch("/me")
+@router.patch("/me", response_model=MeUpdateResponse)
 def patch_me(
     payload: MeUpdateRequest,
     user_id: str = Depends(get_current_user_id),
     db: Session = Depends(get_db),
-) -> dict[str, str]:
+) -> MeUpdateResponse:
     user = db.scalar(select(User).where(User.user_id == user_id))
     if not user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="user not found")
     user.nickname = payload.nickname
     db.commit()
-    return {"message": "수정 완료"}
+    db.refresh(user)
+    return MeUpdateResponse(user_id=user.user_id, nickname=user.nickname, updated_at=user.updated_at)
 
 
-@router.get("/me/recent", response_model=list[RecentFontResponse])
-def get_recent_fonts(
+@router.get("/me/ratings", response_model=list[RatingItem])
+def get_my_ratings(
     user_id: str = Depends(get_current_user_id),
     db: Session = Depends(get_db),
-) -> list[RecentFontResponse]:
+) -> list[RatingItem]:
     rows = db.execute(
-        select(GeneratedFont.generated_font_id, GeneratedFont.name, GeneratedFont.created_at)
-        .join(GenerationJob, GenerationJob.job_id == GeneratedFont.job_id)
-        .where(GenerationJob.user_id == user_id)
-        .order_by(GeneratedFont.created_at.desc())
+        select(Rating.rating_id, Rating.generated_font_id, GeneratedFont.name, Rating.score, Rating.comment, Rating.rated_at)
+        .join(GeneratedFont, GeneratedFont.generated_font_id == Rating.generated_font_id)
+        .where(Rating.user_id == user_id)
+        .order_by(Rating.rated_at.desc())
     ).all()
-    return [RecentFontResponse(generated_font_id=r[0], name=r[1], created_at=r[2]) for r in rows]
+    return [
+        RatingItem(
+            rating_id=r[0],
+            generated_font_id=r[1],
+            font_name=r[2],
+            score=r[3],
+            comment=r[4],
+            rated_at=r[5],
+        )
+        for r in rows
+    ]
 
 
-@router.get("/me/downloadlist", response_model=list[DownloadListResponse])
-def get_download_list(
+@router.get("/me/generations", response_model=list[GenerationJobItem])
+def get_my_generations(
     user_id: str = Depends(get_current_user_id),
     db: Session = Depends(get_db),
-) -> list[DownloadListResponse]:
+) -> list[GenerationJobItem]:
     rows = db.execute(
-        select(GeneratedFont.generated_font_id, GeneratedFont.name, DownloadRecord.downloaded_at)
-        .join(DownloadRecord, DownloadRecord.generated_font_id == GeneratedFont.generated_font_id)
+        select(
+            GenerationJob.job_id,
+            GenerationJob.status,
+            GenerationJob.progress,
+            GenerationJob.similarity_percent,
+            GenerationJob.requested_at,
+            GenerationJob.finished_at,
+            FontFamily.name,
+        )
+        .outerjoin(FontFile, FontFile.font_file_id == GenerationJob.font_file_id)
+        .outerjoin(FontFamily, FontFamily.font_family_id == FontFile.font_family_id)
+        .where(GenerationJob.user_id == user_id)
+        .order_by(GenerationJob.requested_at.desc())
+    ).all()
+
+    return [
+        GenerationJobItem(
+            job_id=r[0],
+            status=r[1],
+            progress=r[2],
+            similarity_percent=float(r[3]) if r[3] is not None else None,
+            requested_at=r[4],
+            finished_at=r[5],
+            font_name=r[6] or "",
+        )
+        for r in rows
+    ]
+
+
+@router.get("/me/downloads", response_model=list[DownloadItem])
+def get_my_downloads(
+    user_id: str = Depends(get_current_user_id),
+    db: Session = Depends(get_db),
+) -> list[DownloadItem]:
+    rows = db.execute(
+        select(
+            DownloadRecord.download_id,
+            GeneratedFont.generated_font_id,
+            GeneratedFont.name,
+            GeneratedFont.file_url,
+            DownloadRecord.downloaded_at,
+        )
+        .join(GeneratedFont, GeneratedFont.generated_font_id == DownloadRecord.generated_font_id)
         .where(DownloadRecord.user_id == user_id)
         .order_by(DownloadRecord.downloaded_at.desc())
     ).all()
-    return [DownloadListResponse(generated_font_id=r[0], name=r[1], downloaded_at=r[2]) for r in rows]
+
+    return [
+        DownloadItem(
+            download_id=r[0],
+            font_id=None,
+            generated_font_id=r[1],
+            font_name=r[2],
+            file_url=r[3],
+            downloaded_at=r[4],
+        )
+        for r in rows
+    ]
