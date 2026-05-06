@@ -1,13 +1,14 @@
 ﻿from datetime import datetime
 
 from pydantic import BaseModel
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user_id
 from app.db.session import get_db
 from app.models import FontFile, GenerationJob, Handwriting
+from app.services.google_generation import run_google_generation_job
 
 
 router = APIRouter()
@@ -38,6 +39,7 @@ class GenerationStatusResponse(BaseModel):
 @router.post("/google", response_model=GenerationJobResponse)
 def create_google_generation(
     payload: GoogleGenerationRequest,
+    background_tasks: BackgroundTasks,
     user_id: str = Depends(get_current_user_id),
     db: Session = Depends(get_db),
 ) -> GenerationJobResponse:
@@ -49,6 +51,7 @@ def create_google_generation(
     db.add(job)
     db.commit()
     db.refresh(job)
+    background_tasks.add_task(run_google_generation_job, job.job_id)
     return GenerationJobResponse(job_id=job.job_id, status=job.status, requested_at=job.requested_at)
 
 

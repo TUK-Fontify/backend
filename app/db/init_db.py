@@ -2,6 +2,7 @@
 
 import app.models  # noqa: F401
 from app.db.base_class import Base
+from app.db.schema_compat import repair_schema
 from app.db.session import engine
 
 
@@ -25,6 +26,7 @@ EXECUTE FUNCTION update_updated_at_column();
 
 def init_db() -> None:
     Base.metadata.create_all(bind=engine)
+    repair_schema(engine)
     with engine.begin() as conn:
         conn.execute(text(TRIGGER_SQL))
 
