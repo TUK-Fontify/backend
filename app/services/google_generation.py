@@ -35,11 +35,16 @@ def _get_gan():
 
 
 def _resolve_font_path(file_path: str) -> Path:
-    path = Path(file_path)
+    normalized = file_path.lstrip("/").replace("\\", "/")
+    if normalized.startswith("fonts/"):
+        normalized = f"static/{normalized}"
+
+    path = Path(normalized)
     candidates = [
         path,
         BACKEND_DIR / path,
         BACKEND_DIR.parent / path,
+        BACKEND_DIR.parent / "backend" / path,
     ]
     for candidate in candidates:
         if candidate.exists():

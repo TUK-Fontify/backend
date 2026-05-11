@@ -14,6 +14,7 @@ class Settings(BaseSettings):
     DATABASE_URL: str | None = None
     DEV_BYPASS_AUTH: bool = False
     DEV_USER_ID: str = "dev-user-001"
+    MXFONT_API_URL: str | None = None
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8-sig")
 

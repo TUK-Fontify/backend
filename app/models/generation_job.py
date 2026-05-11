@@ -1,5 +1,5 @@
 ﻿from datetime import datetime
-from sqlalchemy import BigInteger, DateTime, ForeignKey, Integer, Numeric, String, func
+from sqlalchemy import BigInteger, CheckConstraint, DateTime, ForeignKey, Integer, Numeric, String, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base_class import Base
@@ -7,6 +7,13 @@ from app.db.base_class import Base
 
 class GenerationJob(Base):
     __tablename__ = "generation_jobs"
+    __table_args__ = (
+        CheckConstraint(
+            "(font_file_id IS NOT NULL AND handwriting_id IS NULL) "
+            "OR (font_file_id IS NULL AND handwriting_id IS NOT NULL)",
+            name="chk_generation_job_one_source",
+        ),
+    )
 
     job_id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="PENDING")

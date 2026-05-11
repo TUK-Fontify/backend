@@ -7,8 +7,9 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user_id
 from app.db.session import get_db
-from app.models import FontFile, GenerationJob, Handwriting
+from app.models import FontFile, GeneratedFont, GenerationJob, Handwriting
 from app.services.google_generation import run_google_generation_job
+from app.services.handwriting_generation import list_preview_urls, run_handwriting_generation_job
 
 
 router = APIRouter()
@@ -34,6 +35,9 @@ class GenerationStatusResponse(BaseModel):
     progress: int
     similarity_percent: float | None
     fail_reason: str | None
+    preview_image_urls: list[str]
+    generated_font_id: int | None
+    generated_font_url: str | None
 
 
 @router.post("/google", response_model=GenerationJobResponse)
@@ -58,6 +62,7 @@ def create_google_generation(
 @router.post("/handwriting", response_model=GenerationJobResponse)
 def create_handwriting_generation(
     payload: HandwritingGenerationRequest,
+    background_tasks: BackgroundTasks,
     user_id: str = Depends(get_current_user_id),
     db: Session = Depends(get_db),
 ) -> GenerationJobResponse:
@@ -67,10 +72,16 @@ def create_handwriting_generation(
     if handwriting.user_id != user_id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="not your handwriting")
 
-    job = GenerationJob(user_id=user_id, handwriting_id=payload.handwriting_id, status="PENDING", progress=0)
+    job = GenerationJob(
+        user_id=user_id,
+        handwriting_id=payload.handwriting_id,
+        status="PENDING",
+        progress=0,
+    )
     db.add(job)
     db.commit()
     db.refresh(job)
+    background_tasks.add_task(run_handwriting_generation_job, job.job_id)
     return GenerationJobResponse(job_id=job.job_id, status=job.status, requested_at=job.requested_at)
 
 
@@ -86,6 +97,7 @@ def get_generation_status(
     if job.user_id != user_id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="not your job")
 
+    generated_font = db.scalar(select(GeneratedFont).where(GeneratedFont.job_id == job.job_id))
     similarity = float(job.similarity_percent) if job.similarity_percent is not None else None
     return GenerationStatusResponse(
         job_id=job.job_id,
@@ -93,4 +105,7 @@ def get_generation_status(
         progress=job.progress,
         similarity_percent=similarity,
         fail_reason=job.fail_reason,
+        preview_image_urls=list_preview_urls(job.job_id),
+        generated_font_id=generated_font.generated_font_id if generated_font else None,
+        generated_font_url=generated_font.file_url if generated_font else None,
     )

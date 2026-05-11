@@ -69,7 +69,13 @@ CREATE TABLE generation_jobs (
     CONSTRAINT fk_job_fontfile
         FOREIGN KEY (font_file_id) REFERENCES font_files(font_file_id),
     CONSTRAINT fk_job_handwriting
-        FOREIGN KEY (handwriting_id) REFERENCES handwritings(handwriting_id)
+        FOREIGN KEY (handwriting_id) REFERENCES handwritings(handwriting_id),
+    CONSTRAINT chk_generation_job_one_source
+        CHECK (
+            (font_file_id IS NOT NULL AND handwriting_id IS NULL)
+            OR
+            (font_file_id IS NULL AND handwriting_id IS NOT NULL)
+        )
 );
 
 CREATE TABLE generated_fonts (

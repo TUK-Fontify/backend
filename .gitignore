@@ -3,4 +3,10 @@
 venv/
 __pycache__/
 *.pyc
-models/
+mxfont/
+uploads/*
+!uploads/.gitkeep
+static/generation_jobs/*
+!static/generation_jobs/.gitkeep
+*.pt
+models/checkpoints/

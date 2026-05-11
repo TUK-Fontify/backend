@@ -2,13 +2,14 @@
 from pathlib import Path
 
 from pydantic import BaseModel
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
+from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, UploadFile, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user_id
 from app.db.session import get_db
-from app.models import FontFile, GenerationJob, Handwriting
+from app.models import GenerationJob, Handwriting
+from app.services.handwriting_generation import run_handwriting_generation_job
 
 
 router = APIRouter()
@@ -22,7 +23,6 @@ class UploadResponse(BaseModel):
 
 class CreateRequest(BaseModel):
     handwriting_id: int
-    font_file_id: int
 
 
 class CreateResponse(BaseModel):
@@ -55,6 +55,7 @@ async def upload_handwriting(
 @router.post("/create", response_model=CreateResponse)
 def create_generation_job(
     payload: CreateRequest,
+    background_tasks: BackgroundTasks,
     user_id: str = Depends(get_current_user_id),
     db: Session = Depends(get_db),
 ) -> CreateResponse:
@@ -64,13 +65,8 @@ def create_generation_job(
     if handwriting.user_id != user_id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="not your handwriting")
 
-    font_file = db.scalar(select(FontFile).where(FontFile.font_file_id == payload.font_file_id))
-    if not font_file:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="font file not found")
-
     job = GenerationJob(
         user_id=user_id,
-        font_file_id=payload.font_file_id,
         handwriting_id=payload.handwriting_id,
         status="PENDING",
         progress=0,
@@ -78,4 +74,5 @@ def create_generation_job(
     db.add(job)
     db.commit()
     db.refresh(job)
+    background_tasks.add_task(run_handwriting_generation_job, job.job_id)
     return CreateResponse(job_id=job.job_id, status=job.status)

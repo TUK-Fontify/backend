@@ -45,6 +45,18 @@ END $$;
 ALTER TABLE IF EXISTS generation_jobs
     ALTER COLUMN font_file_id DROP NOT NULL,
     ALTER COLUMN handwriting_id DROP NOT NULL;
+
+ALTER TABLE IF EXISTS generation_jobs
+    DROP CONSTRAINT IF EXISTS chk_generation_job_one_source;
+
+ALTER TABLE IF EXISTS generation_jobs
+    ADD CONSTRAINT chk_generation_job_one_source
+    CHECK (
+        (font_file_id IS NOT NULL AND handwriting_id IS NULL)
+        OR
+        (font_file_id IS NULL AND handwriting_id IS NOT NULL)
+    )
+    NOT VALID;
 """
 
 
