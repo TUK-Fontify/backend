@@ -128,13 +128,20 @@ def _request_mxfont(preview_paths: list[Path], output_ttf: Path) -> bool:
     )
     try:
         with urlopen(request, timeout=60 * 30) as response:
-            output_ttf.write_bytes(response.read())
+            content_type = response.headers.get("Content-Type", "")
+            content = response.read()
     except HTTPError as exc:
         message = exc.read().decode("utf-8", errors="replace")
         raise RuntimeError(f"mxfont api failed: {exc.code} {message}") from exc
     except URLError as exc:
         raise RuntimeError(f"mxfont api unavailable: {exc}") from exc
 
+    if "text/html" in content_type.lower() or content.lstrip().lower().startswith(b"<!doctype html"):
+        raise RuntimeError("mxfont api returned HTML instead of a font file")
+    if not content:
+        raise RuntimeError("mxfont api returned an empty response")
+
+    output_ttf.write_bytes(content)
     return True
 
 

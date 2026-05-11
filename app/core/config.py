@@ -1,5 +1,10 @@
 ﻿from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from pathlib import Path
+
+
+BACKEND_DIR = Path(__file__).resolve().parents[2]
+
 
 class Settings(BaseSettings):
     PROJECT_NAME: str = "Font Backend"
@@ -16,7 +21,7 @@ class Settings(BaseSettings):
     DEV_USER_ID: str = "dev-user-001"
     MXFONT_API_URL: str | None = None
 
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8-sig")
+    model_config = SettingsConfigDict(env_file=BACKEND_DIR / ".env", env_file_encoding="utf-8-sig")
 
     @property
     def database_url(self) -> str:
