@@ -116,7 +116,7 @@ def _request_mxfont(preview_paths: list[Path], output_ttf: Path) -> bool:
         return False
 
     endpoint = settings.MXFONT_API_URL.rstrip("/") + "/" + settings.MXFONT_API_PATH.lstrip("/")
-    body, boundary = _multipart_body(preview_paths, settings.MXFONT_API_FILE_FIELD)
+    body, boundary = _multipart_body(preview_paths, settings.mxfont_api_file_field)
     request = Request(
         endpoint,
         data=body,

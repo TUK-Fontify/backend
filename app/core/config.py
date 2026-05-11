@@ -22,6 +22,7 @@ class Settings(BaseSettings):
     MXFONT_API_URL: str | None = None
     MXFONT_API_PATH: str = "/generate-font"
     MXFONT_API_FILE_FIELD: str = "file"
+    MXFONT_API_FILES_FIELD: str | None = None
 
     model_config = SettingsConfigDict(env_file=BACKEND_DIR / ".env", env_file_encoding="utf-8-sig")
 
@@ -33,6 +34,10 @@ class Settings(BaseSettings):
             f"postgresql+psycopg://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}"
             f"@{self.POSTGRES_SERVER}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
         )
+
+    @property
+    def mxfont_api_file_field(self) -> str:
+        return self.MXFONT_API_FILES_FIELD or self.MXFONT_API_FILE_FIELD
 
 
 settings = Settings()
