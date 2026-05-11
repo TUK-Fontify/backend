@@ -120,7 +120,10 @@ def _request_mxfont(preview_paths: list[Path], output_ttf: Path) -> bool:
     request = Request(
         endpoint,
         data=body,
-        headers={"Content-Type": f"multipart/form-data; boundary={boundary}"},
+        headers={
+            "Content-Type": f"multipart/form-data; boundary={boundary}",
+            "ngrok-skip-browser-warning": "true",
+        },
         method="POST",
     )
     try:

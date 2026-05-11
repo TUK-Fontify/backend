@@ -95,8 +95,8 @@ def list_fonts(
 
 
 @router.get("/{font_id}", response_model=FontFileDetail)
-def get_font(file_id: int, db: Session = Depends(get_db)) -> FontFileDetail:
-    font = db.scalar(select(FontFile).where(FontFile.font_file_id == file_id))
+def get_font(font_id: int, db: Session = Depends(get_db)) -> FontFileDetail:
+    font = db.scalar(select(FontFile).where(FontFile.font_file_id == font_id))
     if not font:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="font not found")
     return FontFileDetail(

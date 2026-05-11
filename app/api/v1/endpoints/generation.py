@@ -1,14 +1,13 @@
 ﻿from datetime import datetime
 
 from pydantic import BaseModel
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user_id
 from app.db.session import get_db
 from app.models import FontFile, GeneratedFont, GenerationJob, Handwriting
-from app.services.google_generation import run_google_generation_job
 from app.services.handwriting_generation import list_preview_urls, run_handwriting_generation_job
 
 
@@ -40,6 +39,14 @@ class GenerationStatusResponse(BaseModel):
     generated_font_url: str | None
 
 
+def _absolute_url(request: Request, path: str | None) -> str | None:
+    if path is None:
+        return None
+    if path.startswith("http://") or path.startswith("https://"):
+        return path
+    return str(request.base_url).rstrip("/") + "/" + path.lstrip("/")
+
+
 @router.post("/google", response_model=GenerationJobResponse)
 def create_google_generation(
     payload: GoogleGenerationRequest,
@@ -55,7 +62,7 @@ def create_google_generation(
     db.add(job)
     db.commit()
     db.refresh(job)
-    background_tasks.add_task(run_google_generation_job, job.job_id)
+    background_tasks.add_task(run_handwriting_generation_job, job.job_id)
     return GenerationJobResponse(job_id=job.job_id, status=job.status, requested_at=job.requested_at)
 
 
@@ -88,6 +95,7 @@ def create_handwriting_generation(
 @router.get("/{job_id}", response_model=GenerationStatusResponse)
 def get_generation_status(
     job_id: int,
+    request: Request,
     user_id: str = Depends(get_current_user_id),
     db: Session = Depends(get_db),
 ) -> GenerationStatusResponse:
@@ -98,6 +106,7 @@ def get_generation_status(
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="not your job")
 
     generated_font = db.scalar(select(GeneratedFont).where(GeneratedFont.job_id == job.job_id))
+    preview_image_urls = [_absolute_url(request, path) for path in list_preview_urls(job.job_id)]
     similarity = float(job.similarity_percent) if job.similarity_percent is not None else None
     return GenerationStatusResponse(
         job_id=job.job_id,
@@ -105,7 +114,7 @@ def get_generation_status(
         progress=job.progress,
         similarity_percent=similarity,
         fail_reason=job.fail_reason,
-        preview_image_urls=list_preview_urls(job.job_id),
+        preview_image_urls=[url for url in preview_image_urls if url is not None],
         generated_font_id=generated_font.generated_font_id if generated_font else None,
-        generated_font_url=generated_font.file_url if generated_font else None,
+        generated_font_url=_absolute_url(request, generated_font.file_url) if generated_font else None,
     )
