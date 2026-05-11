@@ -90,7 +90,7 @@ def _save_preview_images(ttf_path: Path, preview_dir: Path) -> list[Path]:
     return saved_paths
 
 
-def _multipart_body(files: list[Path]) -> tuple[bytes, str]:
+def _multipart_body(files: list[Path], field_name: str) -> tuple[bytes, str]:
     boundary = f"----font-boundary-{uuid4().hex}"
     chunks: list[bytes] = []
     for path in files:
@@ -99,7 +99,7 @@ def _multipart_body(files: list[Path]) -> tuple[bytes, str]:
             [
                 f"--{boundary}\r\n".encode(),
                 (
-                    'Content-Disposition: form-data; name="images"; '
+                    f'Content-Disposition: form-data; name="{field_name}"; '
                     f'filename="{path.name}"\r\n'
                 ).encode(),
                 f"Content-Type: {content_type}\r\n\r\n".encode(),
@@ -115,8 +115,8 @@ def _request_mxfont(preview_paths: list[Path], output_ttf: Path) -> bool:
     if not settings.MXFONT_API_URL:
         return False
 
-    endpoint = settings.MXFONT_API_URL.rstrip("/") + "/generate-font"
-    body, boundary = _multipart_body(preview_paths)
+    endpoint = settings.MXFONT_API_URL.rstrip("/") + "/" + settings.MXFONT_API_PATH.lstrip("/")
+    body, boundary = _multipart_body(preview_paths, settings.MXFONT_API_FILE_FIELD)
     request = Request(
         endpoint,
         data=body,
@@ -132,7 +132,7 @@ def _request_mxfont(preview_paths: list[Path], output_ttf: Path) -> bool:
             content = response.read()
     except HTTPError as exc:
         message = exc.read().decode("utf-8", errors="replace")
-        raise RuntimeError(f"mxfont api failed: {exc.code} {message}") from exc
+        raise RuntimeError(f"mxfont api failed: {exc.code} {endpoint} {message}") from exc
     except URLError as exc:
         raise RuntimeError(f"mxfont api unavailable: {exc}") from exc
 
