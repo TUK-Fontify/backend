@@ -75,9 +75,27 @@ def list_preview_urls(job_id: int) -> list[str]:
 
 
 def _save_preview_images(ttf_path: Path, preview_dir: Path) -> list[Path]:
+    print(
+      "[GAN]",
+      ttf_path,
+      "lock 대기"
+    )
+    
     preview_dir.mkdir(parents=True, exist_ok=True)
     with _gan_run_lock:
+        print(
+          "[GAN]",
+          ttf_path,
+          "lock 획득"
+        )
+        
         _get_gan().generate_from_ttf(str(ttf_path), output_base_dir=str(preview_dir.parent))
+
+        print(
+          "[GAN]",
+          ttf_path,
+          "generation 완료"
+        )
 
     output_dir = preview_dir.parent / ttf_path.stem / "output"
     if not output_dir.exists():
@@ -258,7 +276,9 @@ def run_handwriting_generation_job(job_id: int) -> None:
         job.progress = 50
         db.commit()
 
-        time.sleep(10);
+        print(
+   f"[JOB {job.job_id}] MXFont 시작"
+)
 
         output_ttf = job_dir / "CEHandKRFinal.ttf"
         if settings.MXFONT_API_URL:
@@ -276,6 +296,10 @@ def run_handwriting_generation_job(job_id: int) -> None:
         job.progress = 100
         job.finished_at = _now()
         db.commit()
+
+        print(
+   f"[JOB {job.job_id}] MXFont 완료"
+)
     except Exception as exc:
         db.rollback()
         job = db.scalar(select(GenerationJob).where(GenerationJob.job_id == job_id))

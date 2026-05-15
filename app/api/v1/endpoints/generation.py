@@ -58,7 +58,7 @@ def create_google_generation(
     if not font_file:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="font file not found")
 
-    job = GenerationJob(user_id=user_id, font_file_id=payload.font_file_id, status="PENDING", progress=0)
+    job = GenerationJob(user_id=user_id, font_file_id=payload.font_file_id, status="GOOGLEPENDING", progress=0)
     db.add(job)
     db.commit()
     db.refresh(job)
@@ -73,21 +73,44 @@ def create_handwriting_generation(
     user_id: str = Depends(get_current_user_id),
     db: Session = Depends(get_db),
 ) -> GenerationJobResponse:
+    
+    print(
+        f"[REQUEST] handwriting "
+        f"user={user_id} "
+        f"handwriting_id="
+        f"{payload.handwriting_id}"
+    )
+
     handwriting = db.scalar(select(Handwriting).where(Handwriting.handwriting_id == payload.handwriting_id))
     if not handwriting:
+        print(
+          "[ERROR] "
+          "handwriting not found"
+        )
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="handwriting not found")
     if handwriting.user_id != user_id:
+        print(
+           "[ERROR] "
+           "not your handwriting"
+        )
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="not your handwriting")
 
     job = GenerationJob(
         user_id=user_id,
         handwriting_id=payload.handwriting_id,
-        status="PENDING",
+        status="HANDWRITINGPENDING",
         progress=0,
     )
     db.add(job)
     db.commit()
     db.refresh(job)
+
+    print(
+        f"[JOB CREATED] "
+        f"job_id={job.job_id} "
+        f"status={job.status}"
+    )
+
     background_tasks.add_task(run_handwriting_generation_job, job.job_id)
     return GenerationJobResponse(job_id=job.job_id, status=job.status, requested_at=job.requested_at)
 
