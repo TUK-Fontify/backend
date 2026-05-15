@@ -7,6 +7,7 @@ from threading import Lock
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 from uuid import uuid4
+import time
 
 from sqlalchemy import select
 
@@ -111,12 +112,8 @@ def _multipart_body(files: list[Path], field_name: str) -> tuple[bytes, str]:
     return b"".join(chunks), boundary
 
 
-def _request_mxfont(preview_paths: list[Path], output_ttf: Path) -> bool:
-    if not settings.MXFONT_API_URL:
-        return False
-
-    endpoint = settings.MXFONT_API_URL.rstrip("/") + "/" + settings.MXFONT_API_PATH.lstrip("/")
-    body, boundary = _multipart_body(preview_paths, settings.mxfont_api_file_field)
+def _send_mxfont_request(endpoint: str, preview_paths: list[Path], field_name: str) -> tuple[str, bytes]:
+    body, boundary = _multipart_body(preview_paths, field_name)
     request = Request(
         endpoint,
         data=body,
@@ -126,13 +123,30 @@ def _request_mxfont(preview_paths: list[Path], output_ttf: Path) -> bool:
         },
         method="POST",
     )
+    with urlopen(request, timeout=60 * 30) as response:
+        return response.headers.get("Content-Type", ""), response.read()
+
+
+def _request_mxfont(preview_paths: list[Path], output_ttf: Path) -> bool:
+    if not settings.MXFONT_API_URL:
+        return False
+
+    endpoint = settings.MXFONT_API_URL.rstrip("/") + "/" + settings.MXFONT_API_PATH.lstrip("/")
+    field_name = settings.mxfont_api_file_field
     try:
-        with urlopen(request, timeout=60 * 30) as response:
-            content_type = response.headers.get("Content-Type", "")
-            content = response.read()
+        content_type, content = _send_mxfont_request(endpoint, preview_paths, field_name)
     except HTTPError as exc:
         message = exc.read().decode("utf-8", errors="replace")
-        raise RuntimeError(f"mxfont api failed: {exc.code} {endpoint} {message}") from exc
+        if exc.code == 422 and '"file"' in message and field_name != "file":
+            try:
+                content_type, content = _send_mxfont_request(endpoint, preview_paths, "file")
+            except HTTPError as retry_exc:
+                retry_message = retry_exc.read().decode("utf-8", errors="replace")
+                raise RuntimeError(
+                    f"mxfont api failed: {retry_exc.code} {endpoint} {retry_message}"
+                ) from retry_exc
+        else:
+            raise RuntimeError(f"mxfont api failed: {exc.code} {endpoint} {message}") from exc
     except URLError as exc:
         raise RuntimeError(f"mxfont api unavailable: {exc}") from exc
 
@@ -243,6 +257,8 @@ def run_handwriting_generation_job(job_id: int) -> None:
         job.status = "PREVIEW_READY"
         job.progress = 50
         db.commit()
+
+        time.sleep(10);
 
         output_ttf = job_dir / "CEHandKRFinal.ttf"
         if settings.MXFONT_API_URL:
