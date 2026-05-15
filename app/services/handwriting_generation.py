@@ -269,6 +269,11 @@ def run_handwriting_generation_job(job_id: int) -> None:
         db.commit()
 
         ttf_path = _resolve_backend_path(font_file.file_path)
+
+        print(
+            f"[GAN] {ttf_path} generation service"
+        )
+
         job_dir = JOB_OUTPUT_DIR / str(job.job_id)
         preview_paths = _save_preview_images(ttf_path, job_dir / "preview")
 
