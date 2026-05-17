@@ -20,8 +20,8 @@ class Settings(BaseSettings):
     DEV_BYPASS_AUTH: bool = False
     DEV_USER_ID: str = "dev-user-001"
     MXFONT_API_URL: str | None = None
-    MXFONT_API_PATH: str = "/generate-font"
-    MXFONT_API_FILE_FIELD: str = "file"
+    MXFONT_API_PATH: str = "/generate"
+    MXFONT_API_FILE_FIELD: str = "files"
     MXFONT_API_FILES_FIELD: str | None = None
 
     model_config = SettingsConfigDict(env_file=BACKEND_DIR / ".env", env_file_encoding="utf-8-sig")

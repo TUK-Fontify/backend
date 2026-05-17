@@ -7,15 +7,13 @@ from app.db.base_class import Base
 class FontFile(Base):
     __tablename__ = "font_files"
     __table_args__ = (
-        UniqueConstraint("font_family_id", "weight", "style", name="unique_family_weight_style"),
+        UniqueConstraint("font_family_id", name="unique_family_weight_style"),
     )
 
     font_file_id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
     font_family_id: Mapped[int] = mapped_column(
-        ForeignKey("font_families.font_family_id", ondelete="CASCADE"), nullable=False
+        ForeignKey("font_family.font_family_id", ondelete="CASCADE"), nullable=False
     )
-    weight: Mapped[int] = mapped_column(Integer, nullable=False)
-    style: Mapped[str] = mapped_column(String(20), nullable=False)
     file_path: Mapped[str] = mapped_column(String(255), nullable=False)
 
     font_family = relationship("FontFamily", back_populates="font_files")

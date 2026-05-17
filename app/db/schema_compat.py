@@ -6,8 +6,8 @@ SCHEMA_COMPAT_SQL = """
 DO $$
 BEGIN
     IF to_regclass('public.font_family') IS NOT NULL
-       AND to_regclass('public.font_families') IS NOT NULL THEN
-        INSERT INTO font_families (font_family_id, name)
+       AND to_regclass('public.font_family') IS NOT NULL THEN
+        INSERT INTO font_family (font_family_id, name)
         SELECT font_family_id, name
         FROM font_family
         ON CONFLICT DO NOTHING;
@@ -20,24 +20,24 @@ ALTER TABLE IF EXISTS font_files DROP CONSTRAINT IF EXISTS font_files_font_famil
 DELETE FROM font_files ff
 WHERE NOT EXISTS (
     SELECT 1
-    FROM font_families f
+    FROM font_family f
     WHERE f.font_family_id = ff.font_family_id
 );
 
 DO $$
 BEGIN
     IF to_regclass('public.font_files') IS NOT NULL
-       AND to_regclass('public.font_families') IS NOT NULL
+       AND to_regclass('public.font_family') IS NOT NULL
        AND NOT EXISTS (
            SELECT 1
            FROM pg_constraint
            WHERE conrelid = 'font_files'::regclass
-             AND conname = 'fk_font_files_font_families'
+             AND conname = 'fk_font_files_font_family'
        ) THEN
         ALTER TABLE font_files
-        ADD CONSTRAINT fk_font_files_font_families
+        ADD CONSTRAINT fk_font_files_font_family
         FOREIGN KEY (font_family_id)
-        REFERENCES font_families(font_family_id)
+        REFERENCES font_family(font_family_id)
         ON DELETE CASCADE;
     END IF;
 END $$;

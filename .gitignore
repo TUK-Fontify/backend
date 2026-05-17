@@ -10,3 +10,5 @@ static/generation_jobs/*
 !static/generation_jobs/.gitkeep
 *.pt
 models/checkpoints/
+
+models/new_font_test/

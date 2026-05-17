@@ -274,6 +274,7 @@ class GlyphGAN:
 
     def generate_from_ttf(self, ttf_path: str, font_size: int = 100, output_base_dir: str | None = None):
         font_name = Path(ttf_path).stem
+        print(f"[GlyphGAN] {font_name} 폰트로 생성 시작")
         base_dir = Path(output_base_dir) if output_base_dir else Path("./new_font_test")
         input_dir = base_dir / font_name / "input"
         output_dir = base_dir / font_name / "output"

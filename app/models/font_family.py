@@ -5,7 +5,7 @@ from app.db.base_class import Base
 
 
 class FontFamily(Base):
-    __tablename__ = "font_families"
+    __tablename__ = "font_family"
 
     font_family_id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
     name: Mapped[str] = mapped_column(String(100), nullable=False, unique=True)

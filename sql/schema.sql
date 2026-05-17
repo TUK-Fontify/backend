@@ -34,7 +34,7 @@ CREATE TABLE handwritings (
         ON DELETE CASCADE
 );
 
-CREATE TABLE font_families (
+CREATE TABLE font_family (
     font_family_id BIGSERIAL PRIMARY KEY,
     name VARCHAR(100) NOT NULL UNIQUE
 );
@@ -46,7 +46,7 @@ CREATE TABLE font_files (
     style VARCHAR(20) NOT NULL,
     file_path VARCHAR(255) NOT NULL,
     CONSTRAINT fk_fontfile_family
-        FOREIGN KEY (font_family_id) REFERENCES font_families(font_family_id)
+        FOREIGN KEY (font_family_id) REFERENCES font_family(font_family_id)
         ON DELETE CASCADE,
     CONSTRAINT unique_family_weight_style
         UNIQUE (font_family_id, weight, style)

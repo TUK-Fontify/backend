@@ -1,5 +1,5 @@
 from app.models.download_record import DownloadRecord
-from app.models.font_families import FontFamily
+from app.models.font_family import FontFamily
 from app.models.font_files import FontFile
 from app.models.generated_font import GeneratedFont
 from app.models.generation_job import GenerationJob

@@ -110,6 +110,7 @@ def _save_preview_images(ttf_path: Path, preview_dir: Path) -> list[Path]:
 
 
 def _multipart_body(files: list[Path], field_name: str) -> tuple[bytes, str]:
+    print('multipart body 시작');
     boundary = f"----font-boundary-{uuid4().hex}"
     chunks: list[bytes] = []
     for path in files:
@@ -127,10 +128,12 @@ def _multipart_body(files: list[Path], field_name: str) -> tuple[bytes, str]:
             ]
         )
     chunks.append(f"--{boundary}--\r\n".encode())
+    print('multipart body 끝');
     return b"".join(chunks), boundary
 
 
 def _send_mxfont_request(endpoint: str, preview_paths: list[Path], field_name: str) -> tuple[str, bytes]:
+    print('_send_mxfont_request 시작');
     body, boundary = _multipart_body(preview_paths, field_name)
     request = Request(
         endpoint,
@@ -141,17 +144,38 @@ def _send_mxfont_request(endpoint: str, preview_paths: list[Path], field_name: s
         },
         method="POST",
     )
+
     with urlopen(request, timeout=60 * 30) as response:
-        return response.headers.get("Content-Type", ""), response.read()
+         print(
+        "2 response status:",
+        response.status
+    )
+
+    print(
+        "3 content type:",
+        response.headers.get(
+            "Content-Type"
+        )
+    )
+
+    content = response.read()
+
+    print(
+        "4 read done:",
+        len(content)
+    )
+    return response.headers.get("Content-Type", ""), response.read()
 
 
 def _request_mxfont(preview_paths: list[Path], output_ttf: Path) -> bool:
+    print('request_mxfont 시작');
     if not settings.MXFONT_API_URL:
         return False
 
     endpoint = settings.MXFONT_API_URL.rstrip("/") + "/" + settings.MXFONT_API_PATH.lstrip("/")
     field_name = settings.mxfont_api_file_field
     try:
+        print('send_mxfont_request 시작하겠습니다.');
         content_type, content = _send_mxfont_request(endpoint, preview_paths, field_name)
     except HTTPError as exc:
         message = exc.read().decode("utf-8", errors="replace")
@@ -268,7 +292,7 @@ def run_handwriting_generation_job(job_id: int) -> None:
         job.fail_reason = None
         db.commit()
 
-        ttf_path = _resolve_backend_path(font_file.file_path)
+        ttf_path = font_file.file_path
 
         print(
             f"[GAN] {ttf_path} generation service"
@@ -282,7 +306,7 @@ def run_handwriting_generation_job(job_id: int) -> None:
         db.commit()
 
         print(
-   f"[JOB {job.job_id}] MXFont 시작"
+   f"[JOB {job.job_id}] MXFont 시작, {settings.MXFONT_API_URL}"
 )
 
         output_ttf = job_dir / "CEHandKRFinal.ttf"
@@ -290,6 +314,8 @@ def run_handwriting_generation_job(job_id: int) -> None:
             _request_mxfont(preview_paths, output_ttf)
         else:
             _run_local_mxfont(preview_paths, output_ttf)
+
+        print('request_mxfont 완료')
 
         generated_font = GeneratedFont(
             job_id=job.job_id,

@@ -18,8 +18,6 @@ generated_fonts_router = APIRouter()
 class FontFileItem(BaseModel):
     font_file_id: int
     name: str
-    weight: int
-    style: str
     file_url: str
 
 
@@ -86,9 +84,7 @@ def list_fonts(
         FontFileItem(
             font_file_id=r.font_file_id,
             name=r.font_family.name,
-            weight=r.weight,
-            style=r.style,
-            file_url=_to_file_url(r.file_path),
+            file_url=r.file_path,
         )
         for r in rows
     ]
@@ -102,9 +98,7 @@ def get_font(font_id: int, db: Session = Depends(get_db)) -> FontFileDetail:
     return FontFileDetail(
         font_file_id=font.font_file_id,
         name=font.font_family.name,
-        weight=font.weight,
-        style=font.style,
-        file_url=_to_file_url(font.file_path),
+        file_url=font.file_path,
     )
 
 
