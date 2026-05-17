@@ -1,9 +1,6 @@
 from datetime import UTC, datetime
 from pathlib import Path
 from threading import Lock
-import requests
-import tempfile
-from urllib.parse import urlparse
 
 from sqlalchemy import select
 
@@ -83,58 +80,11 @@ def run_google_generation_job(job_id: int) -> None:
         job.fail_reason = None
         db.commit()
 
-
-        ttf_url = font_file.file_path
-        print("ttf_url =", ttf_url)
-
-
-        # S3에서 ttf 다운로드
-        response = requests.get(ttf_url)
-        response.raise_for_status()
-
-
-        # 임시 ttf 파일 저장
-        with tempfile.NamedTemporaryFile(
-            suffix=".ttf",
-            delete=False
-        ) as tmp:
-
-            tmp.write(response.content)
-            temp_ttf = Path(tmp.name)
-
-
-        print("temp_ttf =", temp_ttf)
-
-
-        with _gan_run_lock:
-            _get_gan().generate_from_ttf(
-                str(temp_ttf),
-                output_base_dir=str(OUTPUT_BASE_DIR)
-            )
-
-
-        # 원래 파일명 추출
-        font_name = Path(
-            urlparse(ttf_url).path
-        ).stem
-
-
-        output_dir = (
-            OUTPUT_BASE_DIR
-            / font_name
-            / "output"
-        )
-
-        print("output_dir =", output_dir)
-
-        """
-        ttf_path = font_file.file_path
-        print("ttf_path =", ttf_path)
+        ttf_path = _resolve_font_path(font_file.file_path)
         with _gan_run_lock:
             _get_gan().generate_from_ttf(str(ttf_path), output_base_dir=str(OUTPUT_BASE_DIR))
 
-        output_dir = OUTPUT_BASE_DIR / ttf_path.stem / "output"
-        """
+        output_dir = OUTPUT_BASE_DIR / Path(ttf_path).stem / "output"
         generated_font = GeneratedFont(
             job_id=job.job_id,
             name=f"{font_file.font_family.name} Generated",
@@ -147,7 +97,6 @@ def run_google_generation_job(job_id: int) -> None:
         job.finished_at = _now()
         db.commit()
     except Exception as exc:
-        print(exc)
         db.rollback()
         job = db.scalar(select(GenerationJob).where(GenerationJob.job_id == job_id))
         if job:

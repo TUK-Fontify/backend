@@ -12,3 +12,5 @@ static/generation_jobs/*
 models/checkpoints/
 
 models/new_font_test/
+models/clip_embeddings.h5
+models/font_index.faiss
