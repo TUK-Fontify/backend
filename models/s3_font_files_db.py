@@ -5,7 +5,7 @@ BUCKET = "fontify-986995923828-ap-northeast-2-an"
 PREFIX = "english_only_google_fonts/"
 
 BASE_URL = (
-    "https://fontify-986995923828-ap-northeast-2.amazonaws.com"
+    "https://fontify-986995923828-ap-northeast-2-an.s3.ap-northeast-2.amazonaws.com"
 )
 
 conn = psycopg2.connect(
