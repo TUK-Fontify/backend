@@ -2,7 +2,6 @@ import boto3
 import psycopg2
 
 BUCKET = "fontify-986995923828-ap-northeast-2-an"
-PREFIX = "english_only_google_fonts/"
 
 conn = psycopg2.connect(
     host="localhost",
@@ -20,11 +19,10 @@ families = set()
 
 paginator = s3.get_paginator("list_objects_v2")
 
-for page in paginator.paginate(Bucket=BUCKET, Prefix=PREFIX):
+for page in paginator.paginate(Bucket=BUCKET):
 
     if "Contents" not in page:
         continue
-
 
     for obj in page["Contents"]:
 
@@ -35,10 +33,8 @@ for page in paginator.paginate(Bucket=BUCKET, Prefix=PREFIX):
 
         parts = key.split("/")
 
-
         if len(parts) < 3:
             continue
-
 
         family_name = parts[1].lower()
 
@@ -52,7 +48,6 @@ for family_name in families:
         ON CONFLICT(name)
         DO NOTHING
     """, (family_name,))
-
 
 conn.commit()
 
