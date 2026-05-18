@@ -9,7 +9,6 @@ class GeneratedFont(Base):
     __tablename__ = "generated_fonts"
 
     generated_font_id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
-    name: Mapped[str] = mapped_column(String(100), nullable=False)
     file_url: Mapped[str] = mapped_column(String(255), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, server_default=func.now())
     job_id: Mapped[int] = mapped_column(

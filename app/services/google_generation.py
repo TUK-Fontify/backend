@@ -87,7 +87,6 @@ def run_google_generation_job(job_id: int) -> None:
         output_dir = OUTPUT_BASE_DIR / Path(ttf_path).stem / "output"
         generated_font = GeneratedFont(
             job_id=job.job_id,
-            name=f"{font_file.font_family.name} Generated",
             file_url=_relative_to_backend(output_dir),
         )
         db.add(generated_font)

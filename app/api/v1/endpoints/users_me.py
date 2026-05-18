@@ -90,7 +90,7 @@ def get_my_ratings(
     db: Session = Depends(get_db),
 ) -> list[RatingItem]:
     rows = db.execute(
-        select(Rating.rating_id, Rating.generated_font_id, GeneratedFont.name, Rating.score, Rating.comment, Rating.rated_at)
+        select(Rating.rating_id, Rating.generated_font_id, Rating.score, Rating.comment, Rating.rated_at)
         .join(GeneratedFont, GeneratedFont.generated_font_id == Rating.generated_font_id)
         .where(Rating.user_id == user_id)
         .order_by(Rating.rated_at.desc())
@@ -99,7 +99,6 @@ def get_my_ratings(
         RatingItem(
             rating_id=r[0],
             generated_font_id=r[1],
-            font_name=r[2],
             score=r[3],
             comment=r[4],
             rated_at=r[5],
@@ -152,7 +151,6 @@ def get_my_downloads(
         select(
             DownloadRecord.download_id,
             GeneratedFont.generated_font_id,
-            GeneratedFont.name,
             GeneratedFont.file_url,
             DownloadRecord.downloaded_at,
         )
@@ -166,7 +164,6 @@ def get_my_downloads(
             download_id=r[0],
             font_id=None,
             generated_font_id=r[1],
-            font_name=r[2],
             file_url=r[3],
             downloaded_at=r[4],
         )

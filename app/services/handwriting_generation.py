@@ -128,7 +128,7 @@ def _multipart_body(files: list[Path], field_name: str) -> tuple[bytes, str]:
             ]
         )
     chunks.append(f"--{boundary}--\r\n".encode())
-    print(files[0].exists())
+    print('multipart body 끝');
     return b"".join(chunks), boundary
 
 
@@ -146,15 +146,25 @@ def _send_mxfont_request(endpoint: str, preview_paths: list[Path], field_name: s
     )
 
     with urlopen(request, timeout=60 * 30) as response:
+         print(
+        "2 response status:",
+        response.status
+    )
 
-        content_type = response.headers.get(
-            "Content-Type",
-            ""
+    print(
+        "3 content type:",
+        response.headers.get(
+            "Content-Type"
         )
+    )
 
-        content = response.read()
+    content = response.read()
 
-        return content_type, content
+    print(
+        "4 read done:",
+        len(content)
+    )
+    return response.headers.get("Content-Type", ""), response.read()
 
 
 def _request_mxfont(preview_paths: list[Path], output_ttf: Path) -> bool:
@@ -167,6 +177,8 @@ def _request_mxfont(preview_paths: list[Path], output_ttf: Path) -> bool:
     try:
         print('send_mxfont_request 시작하겠습니다.');
         content_type, content = _send_mxfont_request(endpoint, preview_paths, field_name)
+        print(content_type)
+        print(content[:100])
     except HTTPError as exc:
         message = exc.read().decode("utf-8", errors="replace")
         if exc.code == 422 and '"file"' in message and field_name != "file":
@@ -290,7 +302,7 @@ def run_handwriting_generation_job(job_id: int) -> None:
 
         job_dir = JOB_OUTPUT_DIR / str(job.job_id)
         preview_paths = _save_preview_images(ttf_path, job_dir / "preview")
-        print(f"[JOB {job.job_id}] GAN preview generation 완료, {preview_paths}")
+        print(f"[JOB {job.job_id}] GAN preview generation 완료, {len(preview_paths)}장 생성")
 
         job.status = "PREVIEW_READY"
         job.progress = 50

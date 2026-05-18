@@ -27,13 +27,11 @@ class FontFileDetail(FontFileItem):
 
 class GeneratedFontItem(BaseModel):
     generated_font_id: int
-    name: str
     file_url: str
 
 
 class GeneratedFontDetail(BaseModel):
     generated_font_id: int
-    name: str
     file_url: str
 
 
@@ -84,7 +82,7 @@ def list_fonts(
         FontFileItem(
             font_file_id=r.font_file_id,
             name=r.font_family.name,
-            file_url=r.file_path,
+            file_url=_to_file_url(r.file_path),
         )
         for r in rows
     ]
@@ -98,7 +96,7 @@ def get_font(font_id: int, db: Session = Depends(get_db)) -> FontFileDetail:
     return FontFileDetail(
         font_file_id=font.font_file_id,
         name=font.font_family.name,
-        file_url=font.file_path,
+        file_url=_to_file_url(font.file_path),
     )
 
 
@@ -136,7 +134,7 @@ def list_generated_fonts(
         select(GeneratedFont).order_by(GeneratedFont.generated_font_id.desc()).offset(offset).limit(limit)
     ).all()
     return [
-        GeneratedFontItem(generated_font_id=r.generated_font_id, name=r.name, file_url=r.file_url)
+        GeneratedFontItem(generated_font_id=r.generated_font_id, file_url=r.file_url)
         for r in rows
     ]
 
@@ -146,7 +144,7 @@ def get_generated_font(font_id: int, db: Session = Depends(get_db)) -> Generated
     font = db.scalar(select(GeneratedFont).where(GeneratedFont.generated_font_id == font_id))
     if not font:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="font not found")
-    return GeneratedFontDetail(generated_font_id=font.generated_font_id, name=font.name, file_url=font.file_url)
+    return GeneratedFontDetail(generated_font_id=font.generated_font_id, file_url=font.file_url)
 
 
 @generated_fonts_router.post("/{font_id}/rate", response_model=RateResponse)
@@ -190,7 +188,6 @@ def list_generated_font_ratings(font_id: int, db: Session = Depends(get_db)) -> 
             Rating.rating_id,
             Rating.user_id,
             Rating.generated_font_id,
-            GeneratedFont.name,
             Rating.score,
             Rating.comment,
             Rating.rated_at,
