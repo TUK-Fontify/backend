@@ -5,7 +5,12 @@ from pathlib import Path
 import shutil
 from threading import Lock
 from urllib.error import HTTPError, URLError
-from urllib.request import Request, urlopen
+import urllib.request 
+import time, json
+
+# 2. FastAPI의 Request는 그대로 가져옵니다. 
+# 이제 이 파일 안에서 'Request'는 오직 FastAPI 것뿐입니다.
+from fastapi import Request, HTTPException, Depends, status
 from uuid import uuid4
 import time
 
@@ -132,10 +137,10 @@ def _multipart_body(files: list[Path], field_name: str) -> tuple[bytes, str]:
     return b"".join(chunks), boundary
 
 
-def _send_mxfont_request(endpoint: str, preview_paths: list[Path], field_name: str) -> tuple[str, bytes]:
-    print('_send_mxfont_request 시작');
+def _create_mxfont_job(endpoint: str, preview_paths: list[Path], field_name: str) -> str:
+    print('_create_mxfont_job 시작')
     body, boundary = _multipart_body(preview_paths, field_name)
-    request = Request(
+    request = urllib.request.Request(
         endpoint,
         data=body,
         headers={
@@ -145,45 +150,67 @@ def _send_mxfont_request(endpoint: str, preview_paths: list[Path], field_name: s
         method="POST",
     )
 
-    with urlopen(request, timeout=60 * 30) as response:
-         print(
-        "2 response status:",
-        response.status
-    )
+    with urllib.request.urlopen(request, timeout=30) as response:
+        data = json.loads(response.read())
 
-    print(
-        "3 content type:",
-        response.headers.get(
-            "Content-Type"
+    job_id = data["job_id"]
+    print("mxfont job 생성됨:", job_id)
+    return job_id
+
+
+def _poll_mxfont_status(base_url: str, job_id: str, interval: int = 5, max_wait: int = 60 * 20) -> None:
+    elapsed = 0
+    while elapsed < max_wait:
+        request = urllib.request.Request(
+            f"{base_url}/status/{job_id}",
+            headers={"ngrok-skip-browser-warning": "true"},
         )
-    )
+        with urllib.request.urlopen(request, timeout=30) as response:
+            data = json.loads(response.read())
 
-    content = response.read()
+        print(f"mxfont job {job_id} 상태:", data["status"])
 
-    print(
-        "4 read done:",
-        len(content)
+        if data["status"] == "done":
+            return
+        if data["status"] == "error":
+            raise RuntimeError(data.get("error", "unknown mxfont error"))
+
+        time.sleep(interval)
+        elapsed += interval
+
+    raise TimeoutError(f"mxfont job {job_id} timed out after {max_wait}s")
+
+
+def _fetch_mxfont_result(base_url: str, job_id: str) -> tuple[str, bytes]:
+    request = urllib.request.Request(
+        f"{base_url}/result/{job_id}",
+        headers={"ngrok-skip-browser-warning": "true"},
     )
-    return response.headers.get("Content-Type", ""), response.read()
+    with urllib.request.urlopen(request, timeout=60) as response:
+        content_type = response.headers.get("Content-Type", "")
+        content = response.read()
+
+    print("mxfont 결과 수신:", content_type, len(content), "bytes")
+    return content_type, content
 
 
 def _request_mxfont(preview_paths: list[Path], output_ttf: Path) -> bool:
-    print('request_mxfont 시작');
+    print('request_mxfont 시작')
     if not settings.MXFONT_API_URL:
         return False
 
-    endpoint = settings.MXFONT_API_URL.rstrip("/") + "/" + settings.MXFONT_API_PATH.lstrip("/")
+    base_url = settings.MXFONT_API_URL.rstrip("/")
+    endpoint = base_url + "/" + settings.MXFONT_API_PATH.lstrip("/")
     field_name = settings.mxfont_api_file_field
+
     try:
-        print('send_mxfont_request 시작하겠습니다.');
-        content_type, content = _send_mxfont_request(endpoint, preview_paths, field_name)
-        print(content_type)
-        print(content[:100])
+        print('mxfont job 생성 요청 보내겠습니다.')
+        job_id = _create_mxfont_job(endpoint, preview_paths, field_name)
     except HTTPError as exc:
         message = exc.read().decode("utf-8", errors="replace")
         if exc.code == 422 and '"file"' in message and field_name != "file":
             try:
-                content_type, content = _send_mxfont_request(endpoint, preview_paths, "file")
+                job_id = _create_mxfont_job(endpoint, preview_paths, "file")
             except HTTPError as retry_exc:
                 retry_message = retry_exc.read().decode("utf-8", errors="replace")
                 raise RuntimeError(
@@ -194,6 +221,9 @@ def _request_mxfont(preview_paths: list[Path], output_ttf: Path) -> bool:
     except URLError as exc:
         raise RuntimeError(f"mxfont api unavailable: {exc}") from exc
 
+    _poll_mxfont_status(base_url, job_id)
+    content_type, content = _fetch_mxfont_result(base_url, job_id)
+
     if "text/html" in content_type.lower() or content.lstrip().lower().startswith(b"<!doctype html"):
         raise RuntimeError("mxfont api returned HTML instead of a font file")
     if not content:
@@ -201,6 +231,7 @@ def _request_mxfont(preview_paths: list[Path], output_ttf: Path) -> bool:
 
     output_ttf.write_bytes(content)
     return True
+
 
 
 def _has_imagemagick() -> bool:
@@ -296,9 +327,7 @@ def run_handwriting_generation_job(job_id: int) -> None:
 
         ttf_path = font_file.file_path
 
-        print(
-            f"[GAN] {ttf_path} generation service"
-        )
+        print(f"[GAN] {ttf_path} generation service")
 
         job_dir = JOB_OUTPUT_DIR / str(job.job_id)
         preview_paths = _save_preview_images(ttf_path, job_dir / "preview")
@@ -308,9 +337,7 @@ def run_handwriting_generation_job(job_id: int) -> None:
         job.progress = 50
         db.commit()
 
-        print(
-   f"[JOB {job.job_id}] MXFont 시작, {settings.MXFONT_API_URL}"
-)
+        print(f"[JOB {job.job_id}] MXFont 시작, {settings.MXFONT_API_URL}")
 
         output_ttf = job_dir / "CEHandKRFinal.ttf"
         if settings.MXFONT_API_URL:
@@ -331,9 +358,7 @@ def run_handwriting_generation_job(job_id: int) -> None:
         job.finished_at = _now()
         db.commit()
 
-        print(
-   f"[JOB {job.job_id}] MXFont 완료"
-)
+        print(f"[JOB {job.job_id}] MXFont 완료")
     except Exception as exc:
         db.rollback()
         job = db.scalar(select(GenerationJob).where(GenerationJob.job_id == job_id))

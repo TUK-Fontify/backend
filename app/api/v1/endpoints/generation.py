@@ -1,17 +1,29 @@
-﻿from datetime import datetime
+﻿from datetime import datetime, timezone
 
 from pydantic import BaseModel
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
+from urllib.error import HTTPError
+from app.core.config import settings
+import urllib.request
+from pathlib import Path
 
 from app.api.deps import get_current_user_id
 from app.db.session import get_db
 from app.models import FontFile, GeneratedFont, GenerationJob, Handwriting
 from app.services.handwriting_generation import list_preview_urls, run_handwriting_generation_job
 
+JOB_OUTPUT_DIR = Path("backend/models/outputs")
 
 router = APIRouter()
+
+def _now() -> datetime:
+    return datetime.now(timezone.utc)
+
+def _static_url(path: Path) -> str:
+    relative_path = path.resolve().relative_to(Path(__file__).resolve().parents[2])
+    return "/" + relative_path.as_posix()
 
 
 class GenerationJobResponse(BaseModel):
@@ -37,6 +49,19 @@ class GenerationStatusResponse(BaseModel):
     preview_image_urls: list[str]
     generated_font_id: int | None
     generated_font_url: str | None
+
+class GeneratedFontItem(BaseModel):
+    generated_font_id: int
+    file_url: str
+
+
+class GeneratedFontDetail(BaseModel):
+    generated_font_id: int
+    file_url: str
+
+
+class DownloadResponse(BaseModel):
+    file_url: str
 
 
 def _absolute_url(request: Request, path: str | None) -> str | None:
@@ -141,3 +166,69 @@ def get_generation_status(
         generated_font_id=generated_font.generated_font_id if generated_font else None,
         generated_font_url=_absolute_url(request, generated_font.file_url) if generated_font else None,
     )
+
+@router.post("/jobs/{job_id}/download", response_model=DownloadResponse)
+def download_generated_font(
+    job_id: int,
+    user_id: str = Depends(get_current_user_id),
+    db: Session = Depends(get_db),
+) -> DownloadResponse:
+    
+    # 1. 작업(Job) 내역 조회
+    job = db.scalar(select(GenerationJob).where(GenerationJob.job_id == job_id))
+    if not job:
+        raise HTTPException(status_code=404, detail="해당 작업을 찾을 수 없습니다.")
+
+    # 2. 이미 다운로드해서 DB에 폰트가 저장되어 있는 경우 (빠른 리턴)
+    if job.status == "COMPLETED":
+        font = db.scalar(select(GeneratedFont).where(GeneratedFont.job_id == job_id))
+
+    # 3. 아직 백엔드에 폰트가 없다면? ➔ Colab(ngrok)에 파일이 다 만들어졌는지 확인하러 감!
+    ngrok_url = settings.MXFONT_API_URL.rstrip("/")
+    download_url = f"{ngrok_url}/download"
+    
+    try:
+        req = urllib.request.Request(download_url, headers={"ngrok-skip-browser-warning": "true"})
+        # 10초만 기다려보고 응답 없으면 빠져나옴 (타임아웃 방지)
+        with urllib.request.urlopen(req, timeout=10) as res:
+            content = res.read()
+            
+            # --- [여기부터는 Colab에서 파일을 성공적으로 받아온 상황] ---
+            # 받아온 폰트(content)를 백엔드 서버 경로에 저장
+            job_dir = JOB_OUTPUT_DIR / str(job.job_id)
+            job_dir.mkdir(parents=True, exist_ok=True) # 폴더 없으면 생성
+            output_ttf = job_dir / "CEHandKRFinal.ttf"
+            output_ttf.write_bytes(content)
+
+            # DB에 드디어 '완성된 폰트' 기록 생성
+            font_file = db.scalar(select(FontFile).where(FontFile.font_file_id == job.font_file_id))
+            generated_font = GeneratedFont(
+                job_id=job.job_id,
+                name=f"{font_file.font_family.name if font_file else 'Custom'} Generated",
+                file_url=_static_url(output_ttf),
+            )
+            db.add(generated_font)
+            
+            # Job 상태도 '완료'로 업데이트
+            job.status = "COMPLETED"
+            job.progress = 100
+            job.finished_at = _now()
+            
+            db.commit()
+
+            return DownloadResponse(file_url=generated_font.file_url)
+
+    except HTTPError as e:
+        # Colab에서 우리가 설정해 둔 404(아직 생성 안 됨) 에러를 뱉었을 때
+        if e.code == 404:
+            raise HTTPException(
+                status_code=400, 
+                detail="폰트가 아직 제작 중입니다. 15분 뒤에 다시 시도해주세요."
+            )
+        else:
+            raise HTTPException(
+                status_code=500, 
+                detail=f"Colab 통신 에러 발생: {e.code}"
+            )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="폰트 다운로드 중 알 수 없는 에러가 발생했습니다.")
