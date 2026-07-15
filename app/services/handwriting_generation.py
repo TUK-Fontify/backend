@@ -8,6 +8,9 @@ from urllib.error import HTTPError, URLError
 import urllib.request 
 import time, json
 
+from sqlalchemy.orm import Session
+from app.utils.s3 import upload_font_to_s3
+
 # 2. FastAPI의 Request는 그대로 가져옵니다. 
 # 이제 이 파일 안에서 'Request'는 오직 FastAPI 것뿐입니다.
 from fastapi import Request, HTTPException, Depends, status
@@ -114,10 +117,25 @@ def _save_preview_images(ttf_path: Path, preview_dir: Path) -> list[Path]:
     return saved_paths
 
 
-def _multipart_body(files: list[Path], field_name: str) -> tuple[bytes, str]:
-    print('multipart body 시작');
+def _multipart_body(
+    files: list[Path],
+    field_name: str,
+    job_id: str,
+) -> tuple[bytes, str]:
+    print('multipart body 시작')
     boundary = f"----font-boundary-{uuid4().hex}"
     chunks: list[bytes] = []
+
+    # job_id를 일반 텍스트 form field로 추가
+    chunks.extend(
+        [
+            f"--{boundary}\r\n".encode(),
+            b'Content-Disposition: form-data; name="job_id"\r\n\r\n',
+            job_id.encode(),
+            b"\r\n",
+        ]
+    )
+
     for path in files:
         content_type = mimetypes.guess_type(path.name)[0] or "application/octet-stream"
         chunks.extend(
@@ -133,13 +151,14 @@ def _multipart_body(files: list[Path], field_name: str) -> tuple[bytes, str]:
             ]
         )
     chunks.append(f"--{boundary}--\r\n".encode())
-    print('multipart body 끝');
+    print('multipart body 끝')
     return b"".join(chunks), boundary
 
 
-def _create_mxfont_job(endpoint: str, preview_paths: list[Path], field_name: str) -> str:
+def _create_mxfont_job(endpoint: str, preview_paths: list[Path], field_name: str, job_id: str) -> str:
     print('_create_mxfont_job 시작')
-    body, boundary = _multipart_body(preview_paths, field_name)
+    job_id = str(job_id)
+    body, boundary = _multipart_body(preview_paths, field_name, job_id)
     request = urllib.request.Request(
         endpoint,
         data=body,
@@ -153,7 +172,10 @@ def _create_mxfont_job(endpoint: str, preview_paths: list[Path], field_name: str
     with urllib.request.urlopen(request, timeout=30) as response:
         data = json.loads(response.read())
 
-    job_id = data["job_id"]
+    returned_job_id = data.get("job_id")
+    if str(returned_job_id) != str(job_id):
+        print(f"경고: job_id 불일치 (요청: {job_id}, 응답: {returned_job_id})")
+
     print("mxfont job 생성됨:", job_id)
     return job_id
 
@@ -193,9 +215,10 @@ def _fetch_mxfont_result(base_url: str, job_id: str) -> tuple[str, bytes]:
     print("mxfont 결과 수신:", content_type, len(content), "bytes")
     return content_type, content
 
-
-def _request_mxfont(preview_paths: list[Path], output_ttf: Path) -> bool:
+def _request_mxfont(db: Session, job_id: str, preview_paths: list[Path], output_ttf: Path) -> bool:
     print('request_mxfont 시작')
+
+    job_id = str(job_id)
     if not settings.MXFONT_API_URL:
         return False
 
@@ -205,12 +228,12 @@ def _request_mxfont(preview_paths: list[Path], output_ttf: Path) -> bool:
 
     try:
         print('mxfont job 생성 요청 보내겠습니다.')
-        job_id = _create_mxfont_job(endpoint, preview_paths, field_name)
+        job_id = _create_mxfont_job(endpoint, preview_paths, field_name, job_id)
     except HTTPError as exc:
         message = exc.read().decode("utf-8", errors="replace")
         if exc.code == 422 and '"file"' in message and field_name != "file":
             try:
-                job_id = _create_mxfont_job(endpoint, preview_paths, "file")
+                job_id = _create_mxfont_job(endpoint, preview_paths, "file", job_id)
             except HTTPError as retry_exc:
                 retry_message = retry_exc.read().decode("utf-8", errors="replace")
                 raise RuntimeError(
@@ -230,6 +253,18 @@ def _request_mxfont(preview_paths: list[Path], output_ttf: Path) -> bool:
         raise RuntimeError("mxfont api returned an empty response")
 
     output_ttf.write_bytes(content)
+
+    # ↓ 여기서 S3 업로드 + DB 저장
+    file_url = upload_font_to_s3(int(job_id), content)
+
+    generated_font = GeneratedFont(
+        file_url=file_url,
+        job_id=int(job_id),
+    )
+    db.add(generated_font)
+    db.commit()
+    db.refresh(generated_font)
+
     return True
 
 
@@ -341,7 +376,7 @@ def run_handwriting_generation_job(job_id: int) -> None:
 
         output_ttf = job_dir / "CEHandKRFinal.ttf"
         if settings.MXFONT_API_URL:
-            _request_mxfont(preview_paths, output_ttf)
+            _request_mxfont(db, job_id, preview_paths, output_ttf)
         else:
             _run_local_mxfont(preview_paths, output_ttf)
 

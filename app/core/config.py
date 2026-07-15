@@ -24,6 +24,11 @@ class Settings(BaseSettings):
     MXFONT_API_FILE_FIELD: str = "files"
     MXFONT_API_FILES_FIELD: str | None = None
 
+    AWS_ACCESS_KEY_ID: str
+    AWS_SECRET_ACCESS_KEY: str
+    AWS_REGION: str = "ap-northeast-2"
+    AWS_S3_BUCKET: str
+
     model_config = SettingsConfigDict(env_file=BACKEND_DIR / ".env", env_file_encoding="utf-8-sig")
 
     @property
