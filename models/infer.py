@@ -269,6 +269,8 @@ class GlyphGAN:
             font_name = Path(ttf_path).stem
             font_data = ttf_path  # 로컬이면 경로 그대로
 
+        print(f"폰트를 가져왔음")
+
         base_dir = Path(output_base_dir)
 
         input_dir = (
@@ -283,7 +285,10 @@ class GlyphGAN:
             / "output"
         )
 
+        print(f"input, output 폴더 가져옴")
+
         self._render_eng_glyphs(font_data, input_dir, font_size)
+        print(f"_render_eng_glyphs 완료")
         results = self.generate_and_save(str(input_dir), str(output_dir))
         return results
 
