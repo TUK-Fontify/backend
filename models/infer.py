@@ -257,6 +257,7 @@ class GlyphGAN:
         return results
 
     def generate_from_ttf(self, ttf_path: str, output_base_dir: str, font_size: int = 100):
+        print(f"generate_from_ttf에 들어왔음")
         parsed = urlparse(ttf_path) # URL인지 로컬 경로인지 분석
         is_url = parsed.scheme in ("http", "https") # URL이면 True, 로컬이면 False
 
