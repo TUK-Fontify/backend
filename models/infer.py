@@ -22,6 +22,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torchvision.transforms as T
 from PIL import Image, ImageDraw, ImageFont
+import urllib.request
 import requests
 from urllib.parse import urlparse
 from io import BytesIO # 메모리에서 URL 처리
@@ -38,7 +39,7 @@ ENG_SAMPLE = 16
 FONT_SIZE = 110
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
+HF_CKPT_URL = "https://huggingface.co/seoyoun2/e2k/resolve/main/epoch_0200.pt"
 
 # ──────────────────────────────────────────────
 # 모델 블록 정의  (학습 코드와 완전히 동일해야 함)
@@ -190,6 +191,20 @@ class GlyphGAN:
         self.generator = Generator().to(self.device)
 
     def _load_ckpt(self, ckpt_path: str):
+        ckpt_path = Path(ckpt_path)
+
+        # 체크포인트 없으면 자동 다운로드
+        if not ckpt_path.exists():
+            print("[GlyphGAN] 체크포인트 없음 → HuggingFace 다운로드 시작")
+
+            ckpt_path.parent.mkdir(parents=True, exist_ok=True)
+
+            urllib.request.urlretrieve(
+                HF_CKPT_URL,
+                str(ckpt_path)
+            )
+
+            print(f"[GlyphGAN] 다운로드 완료 → {ckpt_path}")
         ckpt = torch.load(ckpt_path, map_location=self.device)
         self.style_enc.load_state_dict(ckpt["style_enc"])
         self.content_enc.load_state_dict(ckpt["content_enc"])
