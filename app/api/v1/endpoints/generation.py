@@ -12,7 +12,7 @@ from pathlib import Path
 from app.api.deps import get_current_user_id
 from app.db.session import get_db
 from app.models import FontFile, GeneratedFont, GenerationJob, Handwriting
-from app.services.handwriting_generation import list_preview_urls, run_handwriting_generation_job
+from app.services.handwriting_generation import list_preview_urls, run_handwriting_generation_job, _run_only_handwriting_mxfont
 
 JOB_OUTPUT_DIR = Path("backend/models/outputs")
 
@@ -136,7 +136,7 @@ def create_handwriting_generation(
         f"status={job.status}"
     )
 
-    background_tasks.add_task(run_handwriting_generation_job, job.job_id)
+    background_tasks.add_task(_run_only_handwriting_mxfont, job.job_id)
     return GenerationJobResponse(job_id=job.job_id, status=job.status, requested_at=job.requested_at)
 
 

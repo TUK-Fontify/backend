@@ -299,27 +299,59 @@ def _ensure_local_mxfont_dependencies() -> None:
         )
 
 
-def _run_local_mxfont(preview_paths: list[Path], output_ttf: Path) -> None:
-    _ensure_local_mxfont_dependencies()
+def _run_only_handwriting_mxfont(job_id: int) -> None:
+    db = SessionLocal()
+    try:
+        job = db.scalar(select(GenerationJob).where(GenerationJob.job_id == job_id))
+        if not job:
+            return
+        job.status = "HANDWRITING_READY"
+        job.progress = 50
+        db.commit()
+        print(f"[JOB {job.job_id}] MXFont 시작, {settings.MXFONT_API_URL}")
 
-    input_dir = output_ttf.parent / "mxfont_input_14"
-    if input_dir.exists():
-        shutil.rmtree(input_dir)
-    input_dir.mkdir(parents=True)
+        job_dir = JOB_OUTPUT_DIR / str(job.job_id)
+        output_ttf = job_dir / "CEHandKRFinal.ttf"
 
-    for path in preview_paths:
-        shutil.copy2(path, input_dir / path.name)
+        handwriting = db.scalar(
+        select(Handwriting).where(
+            Handwriting.handwriting_id == job.handwriting_id
+        )
+        )
 
-    from app.services.local_mxfont_pipeline import generate
+        if not handwriting:
+            raise Exception("Handwriting not found")
 
-    generate(
-        input_dir=input_dir,
-        output_ttf=output_ttf,
-        mxfont_dir=LOCAL_MXFONT_DIR,
-        base_ttf=LOCAL_MXFONT_DIR / "data" / "NanumGothic.ttf",
-        chars_json=LOCAL_MXFONT_CHARS_JSON,
-        generator_pth=LOCAL_MXFONT_GENERATOR,
-    )
+        upload_path = Path(handwriting.image_url.lstrip("/"))
+
+        if settings.MXFONT_API_URL:
+            _request_mxfont(db, job_id, upload_path, output_ttf)
+    
+        print('request_mxfont 완료')
+        
+        generated_font = GeneratedFont(
+            job_id=job.job_id,
+            name=f"USER HAND FONT Generated",
+            file_url=_static_url(output_ttf),
+        )
+        db.add(generated_font)
+        job.status = "COMPLETED"
+        job.progress = 100
+        job.finished_at = _now()
+        db.commit()
+        
+        print(f"[JOB {job.job_id}] MXFont 완료")
+    except Exception as exc:
+        db.rollback()
+        job = db.scalar(select(GenerationJob).where(GenerationJob.job_id == job_id))
+        if job:
+            job.status = "FAILED"
+            job.progress = 100
+            job.fail_reason = str(exc)[:255]
+            job.finished_at = _now()
+            db.commit()
+    finally:
+        db.close()
 
 
 def run_handwriting_generation_job(job_id: int) -> None:
@@ -377,8 +409,6 @@ def run_handwriting_generation_job(job_id: int) -> None:
         output_ttf = job_dir / "CEHandKRFinal.ttf"
         if settings.MXFONT_API_URL:
             _request_mxfont(db, job_id, preview_paths, output_ttf)
-        else:
-            _run_local_mxfont(preview_paths, output_ttf)
 
         print('request_mxfont 완료')
 

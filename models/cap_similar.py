@@ -23,6 +23,8 @@ import h5py
 import faiss
 import base64
 import io
+import tempfile
+import urllib.request
 from PIL import Image
 
 
@@ -32,8 +34,25 @@ model, preprocess = clip.load("ViT-B/32", device=device)
 model.eval()
 
 
+def _resolve_s3_path(path: str) -> str:
+    """emb_path/index_path가 "http(s)://..." 형태의 S3 URL이면 로컬 임시파일로 1회 다운로드해
+    그 경로를 반환 (버킷/객체가 퍼블릭이거나 프리사인드 URL이라 자격증명 불필요).
+    로컬 경로면 그대로 반환 (기존 동작 유지)."""
+    if not path.startswith("http://") and not path.startswith("https://"):
+        return path
+
+    suffix = "." + path.split("?")[0].rsplit(".", 1)[-1]
+    tmp = tempfile.NamedTemporaryFile(delete=False, suffix=suffix)
+    urllib.request.urlretrieve(path, tmp.name)
+    return tmp.name
+
+
 class FontRecommender:
     def __init__(self, emb_path: str, index_path: str):
+        # emb_path/index_path가 S3 경로면 서버 시작 시 1회만 로컬로 캐싱
+        emb_path = _resolve_s3_path(emb_path)
+        index_path = _resolve_s3_path(index_path)
+
         # 임베딩 + 폰트명 로드
         with h5py.File(emb_path, "r") as hf:
             self.embeddings = hf["embeddings"][:]
@@ -52,7 +71,7 @@ class FontRecommender:
             ...
         ]
         """
-        # 이미지 로드
+        # 이미지 로드 # 받은 이미지 이름에 대한 처리
         if isinstance(image_input, str):
             if image_input.startswith("data:image"):
                 # base64 이미지
@@ -89,10 +108,10 @@ class FontRecommender:
 # 사용 예시
 if __name__ == "__main__":
     recommender = FontRecommender(
-        emb_path="./clip_embeddings.h5",
-        index_path="./font_index.faiss"
+        emb_path="https://fontify-986995923828-ap-northeast-2-an.s3.ap-northeast-2.amazonaws.com/clip_embeddings.h5",
+        index_path="https://fontify-986995923828-ap-northeast-2-an.s3.ap-northeast-2.amazonaws.com/font_index.faiss"
     )
 
-    results = recommender.recommend("2.png", top_k=10)
+    results = recommender.recommend("2.png", top_k=10) # 여기에 이미지 이름 들어감 # 유사 10개 추천
     for r in results:
         print(f"{r['rank']:2d}. {r['font']:<40s} 유사도: {r['similarity']:.2f}%")
