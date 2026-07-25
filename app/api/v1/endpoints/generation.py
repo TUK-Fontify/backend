@@ -2,7 +2,7 @@
 
 from pydantic import BaseModel
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, status
-from sqlalchemy import select
+from sqlalchemy import select, func
 from sqlalchemy.orm import Session
 from urllib.error import HTTPError
 from app.core.config import settings
@@ -42,6 +42,7 @@ class HandwritingGenerationRequest(BaseModel):
 
 class GenerationStatusResponse(BaseModel):
     job_id: int
+    handwriting_id: int | None
     status: str
     progress: int
     similarity_percent: float | None
@@ -49,6 +50,7 @@ class GenerationStatusResponse(BaseModel):
     preview_image_urls: list[str]
     generated_font_id: int | None
     generated_font_url: str | None
+    total_job_count: int
 
 class GeneratedFontItem(BaseModel):
     generated_font_id: int
@@ -156,8 +158,16 @@ def get_generation_status(
     generated_font = db.scalar(select(GeneratedFont).where(GeneratedFont.job_id == job.job_id))
     preview_image_urls = [_absolute_url(request, path) for path in list_preview_urls(job.job_id)]
     similarity = float(job.similarity_percent) if job.similarity_percent is not None else None
+
+    total_job_count = db.scalar(
+    select(func.count())
+    .select_from(GenerationJob)
+    .where(GenerationJob.user_id == user_id)
+)
+
     return GenerationStatusResponse(
         job_id=job.job_id,
+        handwriting_id=job.handwriting_id if job.handwriting_id is not None else None,
         status=job.status,
         progress=job.progress,
         similarity_percent=similarity,
@@ -165,6 +175,7 @@ def get_generation_status(
         preview_image_urls=[url for url in preview_image_urls if url is not None],
         generated_font_id=generated_font.generated_font_id if generated_font else None,
         generated_font_url=_absolute_url(request, generated_font.file_url) if generated_font else None,
+        total_job_count=total_job_count,
     )
 
 @router.post("/jobs/{job_id}/download", response_model=DownloadResponse)
