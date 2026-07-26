@@ -7,7 +7,8 @@ import matplotlib.pyplot as plt
 import os
 from pathlib import Path
 
-UPLOAD_DIR = Path("/ksydev/Font/backend2/backend/uploads")
+#UPLOAD_DIR = Path("/ksydev/Font/backend2/backend/uploads")
+UPLOAD_DIR = Path("/home/ubuntu/backend/uploads")
 
 files = list(UPLOAD_DIR.glob("*.pdf")) + list(UPLOAD_DIR.glob("*.png"))
 
@@ -21,8 +22,10 @@ extension = Path(INPUT_PATH).suffix.lower()
 OUTPUT_SIZE = 128
 CHARACTER_SIZE = 104
 BLACK_THRESHOLD = 165
-OUTPUT_DIR = "/ksydev/Font/backend2/backend/app/services/output"
-DEBUG_DIR = "/ksydev/Font/backend2/backend/app/services/debug"
+#OUTPUT_DIR = "/ksydev/Font/backend2/backend/app/services/output"
+#DEBUG_DIR = "/ksydev/Font/backend2/backend/app/services/debug"
+OUTPUT_DIR = "/home/ubuntu/backend/app/services/output"
+DEBUG_DIR = "/home/ubuntu/backend/app/services/debug"
 
 print(os.path.abspath(OUTPUT_DIR))
 
