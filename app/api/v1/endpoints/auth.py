@@ -113,7 +113,7 @@ def google_login(
     db: Session = Depends(get_db),
 ):
 
-    info = verify_google_token(body.id_token)
+    info = verify_google_token(body.google_id_token)
 
     user = db.scalar(
         select(User)

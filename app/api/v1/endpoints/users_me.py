@@ -94,15 +94,15 @@ def get_my_ratings(
         .order_by(Rating.rated_at.desc())
     ).all()
     return [
-        RatingItem(
-            rating_id=r[0],
-            generated_font_id=r[1],
-            score=r[3],
-            comment=r[4],
-            rated_at=r[5],
-        )
-        for r in rows
-    ]
+    RatingItem(
+        rating_id=r[0],
+        generated_font_id=r[1],
+        score=r[2],
+        comment=r[3],
+        rated_at=r[4],
+    )
+    for r in rows
+]
 
 
 @router.get("/me/generations", response_model=list[GenerationJobItem])
