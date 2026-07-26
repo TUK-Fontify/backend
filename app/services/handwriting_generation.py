@@ -360,7 +360,8 @@ def _run_only_handwriting_mxfont(job_id: int) -> None:
         if not handwriting:
             raise Exception("Handwriting not found")
 
-        output_dir = Path("/ksydev/Font/backend2/backend/app/services/output")
+        #output_dir = Path("/ksydev/Font/backend2/backend/app/services/output")
+        output_dir = Path("/home/ubuntu/backend/app/services/output")
 
         preview_paths = sorted(output_dir.glob("*.png"))
 
