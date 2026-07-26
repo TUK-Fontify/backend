@@ -15,7 +15,7 @@ router = APIRouter()
 class MeResponse(BaseModel):
     user_id: str
     email: str
-    nickname: str
+    nickname: str | None
     created_at: datetime
 
 
