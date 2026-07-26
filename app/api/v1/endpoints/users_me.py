@@ -33,7 +33,6 @@ class MeUpdateResponse(BaseModel):
 class RatingItem(BaseModel):
     rating_id: int
     generated_font_id: int
-    font_name: str
     score: int
     comment: str | None
     rated_at: datetime
@@ -46,14 +45,13 @@ class GenerationJobItem(BaseModel):
     similarity_percent: float | None
     requested_at: datetime
     finished_at: datetime | None
-    font_name: str
+    font_name: str | None
 
 
 class DownloadItem(BaseModel):
     download_id: int
     font_id: int | None
     generated_font_id: int | None
-    font_name: str
     file_url: str
     downloaded_at: datetime
 

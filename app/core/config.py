@@ -29,6 +29,13 @@ class Settings(BaseSettings):
     AWS_REGION: str = "ap-northeast-2"
     AWS_S3_BUCKET: str
 
+    JWT_SECRET: str
+    JWT_ALGORITHM: str = "HS256"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
+
+    GOOGLE_CLIENT_ID: str
+    GOOGLE_CLIENT_SECRET: str
+
     model_config = SettingsConfigDict(env_file=BACKEND_DIR / ".env", env_file_encoding="utf-8-sig")
 
     @property

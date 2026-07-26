@@ -85,16 +85,6 @@ def run_google_generation_job(job_id: int) -> None:
             _get_gan().generate_from_ttf(str(ttf_path), output_base_dir=str(OUTPUT_BASE_DIR))
 
         output_dir = OUTPUT_BASE_DIR / Path(ttf_path).stem / "output"
-        generated_font = GeneratedFont(
-            job_id=job.job_id,
-            file_url=_relative_to_backend(output_dir),
-        )
-        db.add(generated_font)
-
-        job.status = "COMPLETED"
-        job.progress = 100
-        job.finished_at = _now()
-        db.commit()
     except Exception as exc:
         db.rollback()
         job = db.scalar(select(GenerationJob).where(GenerationJob.job_id == job_id))

@@ -54,7 +54,6 @@ class RatingItem(BaseModel):
     rating_id: int
     user_id: str
     generated_font_id: int
-    font_name: str
     score: int
     comment: str | None
     rated_at: datetime
@@ -202,7 +201,6 @@ def list_generated_font_ratings(font_id: int, db: Session = Depends(get_db)) -> 
             rating_id=r[0],
             user_id=r[1],
             generated_font_id=r[2],
-            font_name=r[3],
             score=r[4],
             comment=r[5],
             rated_at=r[6],

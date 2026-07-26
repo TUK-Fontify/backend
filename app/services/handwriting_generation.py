@@ -215,7 +215,7 @@ def _fetch_mxfont_result(base_url: str, job_id: str) -> tuple[str, bytes]:
     print("mxfont 결과 수신:", content_type, len(content), "bytes")
     return content_type, content
 
-def _request_mxfont(db: Session, job_id: str, preview_paths: list[Path], output_ttf: Path) -> bool:
+def _request_mxfont(db: Session, job_id: str, preview_paths: list[Path]) -> bool:
     print('request_mxfont 시작')
 
     job_id = str(job_id)
@@ -252,7 +252,7 @@ def _request_mxfont(db: Session, job_id: str, preview_paths: list[Path], output_
     if not content:
         raise RuntimeError("mxfont api returned an empty response")
 
-    output_ttf.write_bytes(content)
+    #output_ttf.write_bytes(content)
 
     # ↓ 여기서 S3 업로드 + DB 저장
     file_url = upload_font_to_s3(int(job_id), content)
@@ -267,6 +267,55 @@ def _request_mxfont(db: Session, job_id: str, preview_paths: list[Path], output_
 
     return True
 
+def _request_mxfont_only_handwriting(db: Session, job_id: str, preview_paths: list[Path]) -> bool:
+    print('request_mxfont_only_handwriting 시작')
+
+    job_id = str(job_id)
+    if not settings.MXFONT_API_URL:
+        return False
+
+    base_url = settings.MXFONT_API_URL.rstrip("/")
+    endpoint = base_url + "/" + settings.MXFONT_API_PATH.lstrip("/")
+    field_name = settings.mxfont_api_file_field
+
+    try:
+        print('mxfont job 생성 요청 보내겠습니다.')
+        job_id = _create_mxfont_job(endpoint, preview_paths, field_name, job_id)
+    except HTTPError as exc:
+        message = exc.read().decode("utf-8", errors="replace")
+        if exc.code == 422 and '"file"' in message and field_name != "file":
+            try:
+                job_id = _create_mxfont_job(endpoint, preview_paths, "file", job_id)
+            except HTTPError as retry_exc:
+                retry_message = retry_exc.read().decode("utf-8", errors="replace")
+                raise RuntimeError(
+                    f"mxfont api failed: {retry_exc.code} {endpoint} {retry_message}"
+                ) from retry_exc
+        else:
+            raise RuntimeError(f"mxfont api failed: {exc.code} {endpoint} {message}") from exc
+    except URLError as exc:
+        raise RuntimeError(f"mxfont api unavailable: {exc}") from exc
+
+    _poll_mxfont_status(base_url, job_id)
+    content_type, content = _fetch_mxfont_result(base_url, job_id)
+
+    if "text/html" in content_type.lower() or content.lstrip().lower().startswith(b"<!doctype html"):
+        raise RuntimeError("mxfont api returned HTML instead of a font file")
+    if not content:
+        raise RuntimeError("mxfont api returned an empty response")
+
+    # ↓ 여기서 S3 업로드 + DB 저장
+    file_url = upload_font_to_s3(int(job_id), content)
+
+    generated_font = GeneratedFont(
+        file_url=file_url,
+        job_id=int(job_id),
+    )
+    db.add(generated_font)
+    db.commit()
+    db.refresh(generated_font)
+
+    return True
 
 
 def _has_imagemagick() -> bool:
@@ -311,7 +360,7 @@ def _run_only_handwriting_mxfont(job_id: int) -> None:
         print(f"[JOB {job.job_id}] MXFont 시작, {settings.MXFONT_API_URL}")
 
         job_dir = JOB_OUTPUT_DIR / str(job.job_id)
-        output_ttf = job_dir / "CEHandKRFinal.ttf"
+        #output_ttf = job_dir / "CEHandKRFinal.ttf"
 
         handwriting = db.scalar(
         select(Handwriting).where(
@@ -322,19 +371,15 @@ def _run_only_handwriting_mxfont(job_id: int) -> None:
         if not handwriting:
             raise Exception("Handwriting not found")
 
-        upload_path = Path(handwriting.image_url.lstrip("/"))
+        output_dir = Path("/ksydev/Font/backend2/backend/app/services/output")
+
+        preview_paths = sorted(output_dir.glob("*.png"))
 
         if settings.MXFONT_API_URL:
-            _request_mxfont(db, job_id, upload_path, output_ttf)
+            _request_mxfont_only_handwriting(db, job_id, preview_paths)
     
         print('request_mxfont 완료')
         
-        generated_font = GeneratedFont(
-            job_id=job.job_id,
-            name=f"USER HAND FONT Generated",
-            file_url=_static_url(output_ttf),
-        )
-        db.add(generated_font)
         job.status = "COMPLETED"
         job.progress = 100
         job.finished_at = _now()
@@ -406,18 +451,11 @@ def run_handwriting_generation_job(job_id: int) -> None:
 
         print(f"[JOB {job.job_id}] MXFont 시작, {settings.MXFONT_API_URL}")
 
-        output_ttf = job_dir / "CEHandKRFinal.ttf"
         if settings.MXFONT_API_URL:
-            _request_mxfont(db, job_id, preview_paths, output_ttf)
+            _request_mxfont(db, job_id, preview_paths)
 
         print('request_mxfont 완료')
 
-        generated_font = GeneratedFont(
-            job_id=job.job_id,
-            name=f"{font_file.font_family.name} Generated",
-            file_url=_static_url(output_ttf),
-        )
-        db.add(generated_font)
         job.status = "COMPLETED"
         job.progress = 100
         job.finished_at = _now()

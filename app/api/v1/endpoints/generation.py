@@ -206,26 +206,15 @@ def download_generated_font(
             
             # --- [여기부터는 Colab에서 파일을 성공적으로 받아온 상황] ---
             # 받아온 폰트(content)를 백엔드 서버 경로에 저장
-            job_dir = JOB_OUTPUT_DIR / str(job.job_id)
-            job_dir.mkdir(parents=True, exist_ok=True) # 폴더 없으면 생성
-            output_ttf = job_dir / "CEHandKRFinal.ttf"
-            output_ttf.write_bytes(content)
+            #job_dir = JOB_OUTPUT_DIR / str(job.job_id)
+            #job_dir.mkdir(parents=True, exist_ok=True) # 폴더 없으면 생성
+            #output_ttf = job_dir / "CEHandKRFinal.ttf"
+            #output_ttf.write_bytes(content)
 
-            # DB에 드디어 '완성된 폰트' 기록 생성
-            font_file = db.scalar(select(FontFile).where(FontFile.font_file_id == job.font_file_id))
             generated_font = GeneratedFont(
                 job_id=job.job_id,
-                name=f"{font_file.font_family.name if font_file else 'Custom'} Generated",
-                file_url=_static_url(output_ttf),
+                file_url=db.scalar(select(FontFile).where(FontFile.font_file_id == job.font_file_id))
             )
-            db.add(generated_font)
-            
-            # Job 상태도 '완료'로 업데이트
-            job.status = "COMPLETED"
-            job.progress = 100
-            job.finished_at = _now()
-            
-            db.commit()
 
             return DownloadResponse(file_url=generated_font.file_url)
 

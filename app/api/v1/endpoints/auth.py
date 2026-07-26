@@ -15,13 +15,19 @@ from app.core.config import settings
 from app.db.session import get_db
 from app.models import User
 
+from app.core.security import (
+    create_access_token,
+    create_refresh_token,
+)
+
+from app.core.google import verify_google_token
+
 
 router = APIRouter()
 
 
 class GoogleIdTokenRequest(BaseModel):
     google_id_token: str
-
 
 class AuthResponse(BaseModel):
     user_id: str
@@ -82,6 +88,55 @@ def login(payload: GoogleIdTokenRequest, db: Session = Depends(get_db)) -> AuthR
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="user not found")
 
     return AuthResponse(user_id=user.user_id, email=user.email, nickname=user.nickname, created_at=user.created_at)
+
+
+# google 안 쓰고 jwt 로그인
+#@router.post("/login")
+#def login():
+
+    # DB에서 사용자 확인
+#    user = ...
+
+#    access_token = create_access_token(str(user.user_id))
+#    refresh_token = create_refresh_token(str(user.user_id))
+
+#    return {
+#        "access_token": access_token,
+#        "refresh_token": refresh_token,
+#        "token_type": "bearer",
+#    }
+
+# 찐 구글 로그인
+@router.post("/google")
+def google_login(
+    body: GoogleIdTokenRequest,
+    db: Session = Depends(get_db),
+):
+
+    info = verify_google_token(body.id_token)
+
+    user = db.scalar(
+        select(User)
+        .where(User.email == info["email"])
+    )
+
+    if user is None:
+
+        user = User(
+            email=info["email"]
+        )
+
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+
+    access = create_access_token(str(user.user_id))
+    refresh = create_refresh_token(str(user.user_id))
+
+    return {
+        "access_token": access,
+        "refresh_token": refresh,
+    }
 
 
 class DevLoginRequest(BaseModel):

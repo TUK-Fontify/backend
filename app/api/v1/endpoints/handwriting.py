@@ -11,6 +11,8 @@ from app.db.session import get_db
 from app.models import GenerationJob, Handwriting
 from app.services.handwriting_generation import run_handwriting_generation_job
 
+import shutil
+
 
 router = APIRouter()
 UPLOAD_DIR = Path("uploads")
@@ -40,6 +42,14 @@ async def upload_handwriting(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="image filename is required")
 
     UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+
+    # upload 폴더 내부 파일 삭제
+    for file in UPLOAD_DIR.iterdir():
+        if file.is_file():
+            file.unlink()
+        elif file.is_dir():
+            shutil.rmtree(file)
+
     saved_name = f"{datetime.utcnow().strftime('%Y%m%d%H%M%S%f')}_{image.filename}"
     saved_path = UPLOAD_DIR / saved_name
     content = await image.read()
