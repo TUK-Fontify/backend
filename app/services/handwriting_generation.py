@@ -23,6 +23,8 @@ from app.core.config import settings
 from app.db.session import SessionLocal
 from app.models import FontFile, GeneratedFont, GenerationJob, Handwriting
 
+from models.MAE import generate_hangul_pngs_with_metadata
+
 
 BACKEND_DIR = Path(__file__).resolve().parents[2]
 MODEL_DIR = BACKEND_DIR / "models"
@@ -83,27 +85,19 @@ def list_preview_urls(job_id: int) -> list[str]:
 
 
 def _save_preview_images(ttf_path: Path, preview_dir: Path) -> list[Path]:
-    print(
-      "[GAN]",
-      ttf_path,
-      "lock 대기"
-    )
-    
     preview_dir.mkdir(parents=True, exist_ok=True)
-    with _gan_run_lock:
-        print(
-          "[GAN]",
-          ttf_path,
-          "lock 획득"
-        )
-        
-        _get_gan().generate_from_ttf(str(ttf_path), output_base_dir=str(preview_dir.parent))
 
-        print(
-          "[GAN]",
-          ttf_path,
-          "generation 완료"
-        )
+    print(
+            "[MAE]",
+            ttf_path,
+            "generation 완료"
+            )
+    generate_hangul_pngs_with_metadata(ttf_path)
+    print(
+              "[MAE]",
+              ttf_path,
+              "generation 완료"
+            )
 
     output_dir = preview_dir.parent / Path(ttf_path).stem / "output"
     if not output_dir.exists():
@@ -439,11 +433,11 @@ def run_handwriting_generation_job(job_id: int) -> None:
 
         ttf_path = font_file.file_path
 
-        print(f"[GAN] {ttf_path} generation service")
+        print(f"[MAE] {ttf_path} generation service")
 
         job_dir = JOB_OUTPUT_DIR / str(job.job_id)
         preview_paths = _save_preview_images(ttf_path, job_dir / "preview")
-        print(f"[JOB {job.job_id}] GAN preview generation 완료, {len(preview_paths)}장 생성")
+        print(f"[JOB {job.job_id}] MAE preview generation 완료, {len(preview_paths)}장 생성")
 
         job.status = "PREVIEW_READY"
         job.progress = 50
