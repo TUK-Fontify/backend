@@ -28,13 +28,13 @@ class FontFileDetail(FontFileItem):
 class GeneratedFontItem(BaseModel):
     generated_font_id: int
     file_url: str
-    font_id:int | None
+    font_id:int | None = None
 
 
 class GeneratedFontDetail(BaseModel):
     generated_font_id: int
     file_url: str
-    font_id:int | None
+    font_id:int | None = None
 
 
 class DownloadResponse(BaseModel):
