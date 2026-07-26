@@ -7,6 +7,15 @@ from threading import Lock
 from urllib.error import HTTPError, URLError
 import urllib.request 
 import time, json
+from handwriting import split_handwriting_sheet
+
+import fitz
+import cv2
+import numpy as np
+import matplotlib.pyplot as plt
+
+import os
+from pathlib import Path
 
 from sqlalchemy.orm import Session
 from app.utils.s3 import upload_font_to_s3
@@ -362,6 +371,8 @@ def _run_only_handwriting_mxfont(job_id: int) -> None:
 
         #output_dir = Path("/ksydev/Font/backend2/backend/app/services/output")
         output_dir = Path("/home/ubuntu/backend/app/services/output")
+
+        split_handwriting_sheet();
 
         preview_paths = sorted(output_dir.glob("*.png"))
 
