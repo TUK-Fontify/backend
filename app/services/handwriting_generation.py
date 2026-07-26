@@ -7,7 +7,7 @@ from threading import Lock
 from urllib.error import HTTPError, URLError
 import urllib.request 
 import time, json
-from handwriting import split_handwriting_sheet
+from app.services.handwriting import split_handwriting_sheet
 
 import fitz
 import cv2
