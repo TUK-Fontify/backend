@@ -28,11 +28,13 @@ class FontFileDetail(FontFileItem):
 class GeneratedFontItem(BaseModel):
     generated_font_id: int
     file_url: str
+    font_id:int | None
 
 
 class GeneratedFontDetail(BaseModel):
     generated_font_id: int
     file_url: str
+    font_id:int | None
 
 
 class DownloadResponse(BaseModel):
@@ -109,7 +111,7 @@ def download_font(
     if not font:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="font not found")
 
-    db.add(DownloadRecord(user_id=user_id, generated_font_id=font_id))
+    db.add(DownloadRecord(user_id=user_id, generated_font_id=font_id, font_id=font.font_id))
     db.commit()
 
     return DownloadResponse(file_url=font.file_url)
