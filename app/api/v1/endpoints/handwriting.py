@@ -6,7 +6,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Up
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_user_id
+from app.core.dependencies import get_current_user_id
 from app.db.session import get_db
 from app.models import GenerationJob, Handwriting
 from app.services.handwriting_generation import run_handwriting_generation_job

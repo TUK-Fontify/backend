@@ -9,7 +9,7 @@ from app.core.config import settings
 import urllib.request
 from pathlib import Path
 
-from app.api.deps import get_current_user_id
+from app.core.dependencies import get_current_user_id
 from app.db.session import get_db
 from app.models import FontFile, GeneratedFont, GenerationJob, Handwriting
 from app.services.handwriting_generation import list_preview_urls, run_handwriting_generation_job, _run_only_handwriting_mxfont
