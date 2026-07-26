@@ -87,23 +87,14 @@ def list_preview_urls(job_id: int) -> list[str]:
 def _save_preview_images(ttf_path: Path, preview_dir: Path) -> list[Path]:
     preview_dir.mkdir(parents=True, exist_ok=True)
 
-    print(
-            "[MAE]",
-            ttf_path,
-            "generation 완료"
-            )
     result = generate_hangul_pngs_with_metadata(ttf_path)
-    print(
-              "[MAE]",
-              ttf_path,
-              "generation 완료"
-            )
 
-    output_dir = preview_dir.parent / Path(ttf_path).stem / "output"
-    
-    if not output_dir.exists():
-        raise FileNotFoundError(f"mae output not found: {output_dir}")
+    font_name = ttf_path.stem
+    base_dir = preview_dir.parent
 
+    output_dir = base_dir / font_name / "output"
+
+    # output 폴더 생성 + PNG 저장
     save_pngs(result["pngs"], output_dir)
 
     saved_paths = []
@@ -111,6 +102,7 @@ def _save_preview_images(ttf_path: Path, preview_dir: Path) -> list[Path]:
         target = preview_dir / image_path.name
         target.write_bytes(image_path.read_bytes())
         saved_paths.append(target)
+
     return saved_paths
 
 
