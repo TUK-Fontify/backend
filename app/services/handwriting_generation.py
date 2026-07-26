@@ -23,7 +23,7 @@ from app.core.config import settings
 from app.db.session import SessionLocal
 from app.models import FontFile, GeneratedFont, GenerationJob, Handwriting
 
-from models.MAE import generate_hangul_pngs_with_metadata
+from models.MAE import generate_hangul_pngs_with_metadata, save_pngs
 
 
 BACKEND_DIR = Path(__file__).resolve().parents[2]
@@ -92,7 +92,7 @@ def _save_preview_images(ttf_path: Path, preview_dir: Path) -> list[Path]:
             ttf_path,
             "generation 완료"
             )
-    generate_hangul_pngs_with_metadata(ttf_path)
+    result = generate_hangul_pngs_with_metadata(ttf_path)
     print(
               "[MAE]",
               ttf_path,
@@ -101,14 +101,11 @@ def _save_preview_images(ttf_path: Path, preview_dir: Path) -> list[Path]:
 
     output_dir = preview_dir.parent / Path(ttf_path).stem / "output"
     if not output_dir.exists():
-        raise FileNotFoundError(f"infer output not found: {output_dir}")
+        raise FileNotFoundError(f"mae output not found: {output_dir}")
 
-    saved_paths = []
-    for image_path in sorted(output_dir.glob("*.png")):
-        target = preview_dir / image_path.name
-        target.write_bytes(image_path.read_bytes())
-        saved_paths.append(target)
-    return saved_paths
+    saved_files = save_pngs(result["pngs"], preview_dir)
+    
+    return saved_files
 
 
 def _multipart_body(
