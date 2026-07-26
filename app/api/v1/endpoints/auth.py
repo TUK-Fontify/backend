@@ -132,10 +132,12 @@ def google_login(
 
     access = create_access_token(str(user.user_id))
     refresh = create_refresh_token(str(user.user_id))
+    print(f"[LOGIN] user_id={user.user_id} email={user.email} access_token={access} refresh_token={refresh}")
 
     return {
         "access_token": access,
         "refresh_token": refresh,
+        "user_id": user.user_id,
     }
 
 
