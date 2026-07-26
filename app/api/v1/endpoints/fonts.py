@@ -16,7 +16,7 @@ generated_fonts_router = APIRouter()
 
 
 class FontFileItem(BaseModel):
-    font_id: int
+    font_file_id: int
     name: str
     file_url: str
 
@@ -77,11 +77,11 @@ def list_fonts(
 ) -> list[FontFileItem]:
     offset = (page - 1) * limit
     rows = db.scalars(
-        select(FontFile).order_by(FontFile.font_id.desc()).offset(offset).limit(limit)
+        select(FontFile).order_by(FontFile.font_file_id.desc()).offset(offset).limit(limit)
     ).all()
     return [
         FontFileItem(
-            font_id=r.font_id,
+            font_file_id=r.font_file_id,
             name=r.font_family.name,
             file_url=_to_file_url(r.file_path),
         )
@@ -91,11 +91,11 @@ def list_fonts(
 
 @router.get("/{font_id}", response_model=FontFileDetail)
 def get_font(font_id: int, db: Session = Depends(get_db)) -> FontFileDetail:
-    font = db.scalar(select(FontFile).where(FontFile.font_id == font_id))
+    font = db.scalar(select(FontFile).where(FontFile.font_file_id == font_id))
     if not font:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="font not found")
     return FontFileDetail(
-        font_id=font.font_id,
+        font_file_id=font.font_file_id,
         name=font.font_family.name,
         file_url=_to_file_url(font.file_path),
     )
