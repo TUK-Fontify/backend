@@ -28,13 +28,11 @@ class FontFileDetail(FontFileItem):
 class GeneratedFontItem(BaseModel):
     generated_font_id: int
     file_url: str
-    font_id : int
 
 
 class GeneratedFontDetail(BaseModel):
     generated_font_id: int
     file_url: str
-    font_id : int
 
 
 class DownloadResponse(BaseModel):
@@ -145,7 +143,7 @@ def get_generated_font(font_id: int, db: Session = Depends(get_db)) -> Generated
     font = db.scalar(select(GeneratedFont).where(GeneratedFont.generated_font_id == font_id))
     if not font:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="font not found")
-    return GeneratedFontDetail(generated_font_id=font.generated_font_id, file_url=font.file_url, font_id=font.font_id)
+    return GeneratedFontDetail(generated_font_id=font.generated_font_id, file_url=font.file_url)
 
 
 @generated_fonts_router.post("/{font_id}/rate", response_model=RateResponse)
