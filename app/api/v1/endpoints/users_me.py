@@ -20,12 +20,12 @@ class MeResponse(BaseModel):
 
 
 class MeUpdateRequest(BaseModel):
-    nickname: str
+    nickname: str | None
 
 
 class MeUpdateResponse(BaseModel):
     user_id: str
-    nickname: str
+    nickname: str | None
     updated_at: datetime
 
 

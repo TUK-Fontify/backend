@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_user_id
+from app.core.dependencies import get_current_user_id
 from app.db.session import get_db
 from app.models import DownloadRecord, FontFile, GeneratedFont, Rating
 
@@ -28,11 +28,13 @@ class FontFileDetail(FontFileItem):
 class GeneratedFontItem(BaseModel):
     generated_font_id: int
     file_url: str
+    font_id : int
 
 
 class GeneratedFontDetail(BaseModel):
     generated_font_id: int
     file_url: str
+    font_id : int
 
 
 class DownloadResponse(BaseModel):
@@ -133,7 +135,7 @@ def list_generated_fonts(
         select(GeneratedFont).order_by(GeneratedFont.generated_font_id.desc()).offset(offset).limit(limit)
     ).all()
     return [
-        GeneratedFontItem(generated_font_id=r.generated_font_id, file_url=r.file_url)
+        GeneratedFontItem(generated_font_id=r.generated_font_id, file_url=r.file_url, font_id=r.font_file_id)
         for r in rows
     ]
 
@@ -143,7 +145,7 @@ def get_generated_font(font_id: int, db: Session = Depends(get_db)) -> Generated
     font = db.scalar(select(GeneratedFont).where(GeneratedFont.generated_font_id == font_id))
     if not font:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="font not found")
-    return GeneratedFontDetail(generated_font_id=font.generated_font_id, file_url=font.file_url)
+    return GeneratedFontDetail(generated_font_id=font.generated_font_id, file_url=font.file_url, font_id=font.font_file_id)
 
 
 @generated_fonts_router.post("/{font_id}/rate", response_model=RateResponse)
