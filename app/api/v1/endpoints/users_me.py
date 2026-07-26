@@ -12,7 +12,6 @@ from app.models import DownloadRecord, FontFamily, FontFile, GeneratedFont, Gene
 
 router = APIRouter()
 
-
 class MeResponse(BaseModel):
     user_id: str
     email: str
@@ -32,6 +31,7 @@ class MeUpdateResponse(BaseModel):
 
 class RatingItem(BaseModel):
     rating_id: int
+    user_id: str
     generated_font_id: int
     score: int
     comment: str | None
@@ -40,6 +40,7 @@ class RatingItem(BaseModel):
 
 class GenerationJobItem(BaseModel):
     job_id: int
+    user_id: str
     status: str
     progress: int
     similarity_percent: float | None
@@ -50,6 +51,7 @@ class GenerationJobItem(BaseModel):
 
 class DownloadItem(BaseModel):
     download_id: int
+    user_id: str
     font_id: int | None
     generated_font_id: int | None
     file_url: str
@@ -96,6 +98,7 @@ def get_my_ratings(
     return [
     RatingItem(
         rating_id=r[0],
+        user_id=user_id,
         generated_font_id=r[1],
         score=r[2],
         comment=r[3],
@@ -129,6 +132,7 @@ def get_my_generations(
     return [
         GenerationJobItem(
             job_id=r[0],
+            user_id=user_id,
             status=r[1],
             progress=r[2],
             similarity_percent=float(r[3]) if r[3] is not None else None,
@@ -161,6 +165,7 @@ def get_my_downloads(
         DownloadItem(
             download_id=r[0],
             font_id=None,
+            user_id=user_id,
             generated_font_id=r[1],
             file_url=r[3],
             downloaded_at=r[4],

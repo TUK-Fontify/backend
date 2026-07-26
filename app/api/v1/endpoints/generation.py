@@ -28,6 +28,7 @@ def _static_url(path: Path) -> str:
 
 class GenerationJobResponse(BaseModel):
     job_id: int
+    user_id: str
     status: str
     requested_at: datetime
 
@@ -42,6 +43,7 @@ class HandwritingGenerationRequest(BaseModel):
 
 class GenerationStatusResponse(BaseModel):
     job_id: int
+    user_id: str
     handwriting_id: int | None
     status: str
     progress: int
@@ -90,7 +92,7 @@ def create_google_generation(
     db.commit()
     db.refresh(job)
     background_tasks.add_task(run_handwriting_generation_job, job.job_id)
-    return GenerationJobResponse(job_id=job.job_id, status=job.status, requested_at=job.requested_at)
+    return GenerationJobResponse(job_id=job.job_id, user_id=job.user_id, status=job.status, requested_at=job.requested_at)
 
 
 @router.post("/handwriting", response_model=GenerationJobResponse)
@@ -139,7 +141,7 @@ def create_handwriting_generation(
     )
 
     background_tasks.add_task(_run_only_handwriting_mxfont, job.job_id)
-    return GenerationJobResponse(job_id=job.job_id, status=job.status, requested_at=job.requested_at)
+    return GenerationJobResponse(job_id=job.job_id, user_id=job.user_id, status=job.status, requested_at=job.requested_at)
 
 
 @router.get("/{job_id}", response_model=GenerationStatusResponse)
@@ -167,6 +169,7 @@ def get_generation_status(
 
     return GenerationStatusResponse(
         job_id=job.job_id,
+        user_id=job.user_id,
         handwriting_id=job.handwriting_id if job.handwriting_id is not None else None,
         status=job.status,
         progress=job.progress,
