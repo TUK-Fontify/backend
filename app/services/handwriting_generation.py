@@ -85,12 +85,11 @@ def list_preview_urls(job_id: int) -> list[str]:
 
 
 def _save_preview_images(ttf_path: Path, preview_dir: Path) -> list[Path]:
-    ttf_path = Path(ttf_path)
     preview_dir.mkdir(parents=True, exist_ok=True)
 
     result = generate_hangul_pngs_with_metadata(ttf_path)
 
-    font_name = ttf_path.stem
+    font_name = Path(ttf_path).stem
     base_dir = preview_dir.parent
 
     output_dir = base_dir / font_name / "output"
