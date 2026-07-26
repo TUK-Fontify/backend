@@ -135,7 +135,7 @@ def list_generated_fonts(
         select(GeneratedFont).order_by(GeneratedFont.generated_font_id.desc()).offset(offset).limit(limit)
     ).all()
     return [
-        GeneratedFontItem(generated_font_id=r.generated_font_id, file_url=r.file_url, font_id=r.font_id)
+        GeneratedFontItem(generated_font_id=r.generated_font_id, file_url=r.file_url)
         for r in rows
     ]
 
