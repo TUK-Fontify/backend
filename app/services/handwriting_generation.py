@@ -104,7 +104,7 @@ def _save_preview_images(ttf_path: Path, preview_dir: Path) -> list[Path]:
         raise FileNotFoundError(f"mae output not found: {output_dir}")
 
     saved_files = save_pngs(result["pngs"], preview_dir)
-    
+
     return saved_files
 
 
@@ -147,7 +147,7 @@ def _multipart_body(
 
 
 def _create_mxfont_job(endpoint: str, preview_paths: list[Path], field_name: str, job_id: str) -> str:
-    print('_create_mxfont_job 시작')
+    print('_create_mxfont_job 시작!')
     job_id = str(job_id)
     body, boundary = _multipart_body(preview_paths, field_name, job_id)
     request = urllib.request.Request(
